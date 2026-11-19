@@ -304,7 +304,7 @@
       <div class="row"><input class="in" id="knew" type="email" placeholder="email@ejemplo.com" style="flex:1"><button class="btn sm" data-a="adduser">Agregar</button></div>
       <small>La persona que agregues crea su propia contraseña en "Primera vez: crear mi cuenta".</small>
       <h4>Conexiones</h4>
-      <div class="row"><span>Gmail: ${!f.gmail ? 'falta configurar Google en Vercel' : gmail?.connected ? 'conectado · ' + escH(gmail.email) : 'sin conectar'}</span>${f.gmail ? `<button class="btn sm" data-act="gmail-connect">${gmail?.connected ? 'Reconectar' : 'Conectar Gmail'}</button>` : ''}</div>
+      <div class="row"><span>Gmail: ${!f.gmail ? 'falta configurar Google en Vercel' : gmail?.connected ? 'conectado · ' + escH(gmail.email) : gmail?.code === 'needs_reauth' ? 'Google rechazó la contraseña de aplicación' : 'sin conectar'}</span>${f.gmail && f.gmailMode !== 'app_password' ? `<button class="btn sm" data-act="gmail-connect">${gmail?.connected ? 'Reconectar' : 'Conectar Gmail'}</button>` : ''}</div>
       <div class="row"><span>IA (Claude): ${f.ai ? 'activa' : 'falta la clave en Vercel'}</span></div>
       <div class="row"><span>Commas (pagos): ${f.commas ? 'conectado' : 'falta la clave en Vercel'}</span></div>
       <h4>Respaldo</h4>

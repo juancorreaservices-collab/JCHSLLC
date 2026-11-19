@@ -21,7 +21,8 @@ export default async function handler(req, res) {
     canSetup: !!PG_URL,
     features: {
       ai: !!process.env.ANTHROPIC_API_KEY,
-      gmail: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      gmail: !!process.env.GMAIL_APP_PASSWORD || !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      gmailMode: process.env.GMAIL_APP_PASSWORD ? 'app_password' : 'oauth',
       commas: !!process.env.COMMAS_API_KEY,
       files: !!SB_SERVICE,
     },

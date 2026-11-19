@@ -22,7 +22,8 @@ One page (`public/index.html`) plus a few serverless functions, deployed on Verc
 | `SUPABASE_ANON_KEY` | everything | same page, "anon public" |
 | `SUPABASE_SERVICE_ROLE_KEY` | files, AI, Gmail, Commas | same page, "service_role" (keep secret) |
 | `ANTHROPIC_API_KEY` | AI | console.anthropic.com → API keys |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Gmail | Google Cloud → Credentials → OAuth client (Web). Redirect URI: `https://<your-domain>/api/google` |
+| `GMAIL_APP_PASSWORD` (optional `GMAIL_USER`) | Gmail, simple way | Google Account → Security → App passwords (needs 2-Step Verification) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Gmail, OAuth way | Google Cloud → Credentials → OAuth client (Web). Redirect URI: `https://<your-domain>/api/google` |
 | `COMMAS_API_KEY` | payment links | Commas dashboard → API keys |
 
 The app works with only the three Supabase values; each of the others switches on its feature.

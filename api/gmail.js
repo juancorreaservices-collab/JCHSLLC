@@ -1,5 +1,6 @@
 import { requireUser } from '../lib/auth.js';
 import { gmailAccessToken } from '../lib/google.js';
+import { appPasswordSet, imapTools } from '../lib/gmail-imap.js';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
@@ -105,8 +106,17 @@ export const config = { api: { bodyParser: { sizeLimit: '4mb' } } };
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ code: 'invalid_request' });
   const user = await requireUser(req, res); if (!user) return;
-  if (!process.env.GOOGLE_CLIENT_ID) return res.status(409).json({ code: 'server_not_connected', message: 'Gmail is not set up yet' });
   const { tool, input } = req.body || {};
+  if (appPasswordSet()) {
+    // App-password mode: the mailbox is GMAIL_USER, or the owner's own sign-in email.
+    let mailbox = process.env.GMAIL_USER || '';
+    if (!mailbox) { const { data } = await user.sb.from('kuadra_users').select('email').order('added_at').limit(1); mailbox = data?.[0]?.email || user.email; }
+    const t = imapTools(mailbox)[tool];
+    if (!t) return res.status(400).json({ code: 'not_in_manifest', message: 'Unknown tool' });
+    try { return res.status(200).json(await t(input || {})); }
+    catch (e) { const code = e.code || 'tool_error'; return res.status(code === 'needs_reauth' ? 409 : code === 'server_unavailable' ? 503 : 400).json({ code, message: e.message }); }
+  }
+  if (!process.env.GOOGLE_CLIENT_ID) return res.status(409).json({ code: 'server_not_connected', message: 'Gmail is not set up yet' });
   const fn = TOOLS[tool];
   if (!fn) return res.status(400).json({ code: 'not_in_manifest', message: 'Unknown tool' });
   try {
