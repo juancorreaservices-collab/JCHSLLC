@@ -3414,10 +3414,7 @@ function quickModal(){
       <label class="f"><span>Dirección del trabajo (opcional)</span><input class="in plain" id="qs-prop" placeholder="Dirección" autocomplete="off"></label>
       <label class="f"><span>Servicio (en inglés, así lo ve el cliente)</span><input class="in plain" id="qs-desc" placeholder="Ej. Service call, Drywall patch" autocomplete="off"></label>
       <div id="qs-sug" class="qs-sug"></div>
-      <div class="qs-2">
-        <label class="f"><span>Monto a cobrar</span><input class="in plain n" id="qs-amt" inputmode="decimal" placeholder="0.00"></label>
-        <label class="f"><span>Tu costo (opcional, no lo ve el cliente)</span><input class="in plain n" id="qs-cost" inputmode="decimal" placeholder="0.00"></label>
-      </div>
+      <label class="f"><span>Monto a cobrar</span><input class="in plain n" id="qs-amt" inputmode="decimal" placeholder="0.00"></label>
       <label class="f"><span>Detalle para el cliente (opcional)</span><textarea class="in plain" id="qs-notes" data-k="notes" rows="2" placeholder="Algo más que quieras que diga la factura"></textarea>${notesMic()}</label>
       <label class="qs-keep"><input type="checkbox" id="qs-keep"> Guardar este servicio con su precio para elegirlo la próxima vez</label>
       <div id="qs-msg"></div>
@@ -3439,7 +3436,7 @@ $('#modal').addEventListener('input', e => {
 async function quickSave(send){
   const msg = t => { $('#qs-msg').innerHTML = `<div class="note bad">${t}</div>`; };
   const name = $('#qs-client').value.trim(), email = $('#qs-email').value.trim(), desc = $('#qs-desc').value.trim();
-  const amt = Math.round(N($('#qs-amt').value)*100)/100, cost = Math.round(N($('#qs-cost').value)*100)/100;
+  const amt = Math.round(N($('#qs-amt').value)*100)/100, cost = 0;
   if (!name) return msg('Escribe el nombre del cliente.');
   if (!desc) return msg('Escribe qué servicio se hizo.');
   if (amt<=0) return msg('Escribe el monto a cobrar.');
