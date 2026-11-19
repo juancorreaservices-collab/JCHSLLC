@@ -164,21 +164,38 @@
   /* ---------- mcp: Gmail through /api/gmail ---------- */
   function makeMcp() {
     const watchers = new Set();
-    const callTool = (server, tool, input) => api('/api/gmail', { tool, input });
+    const raw = (server, tool, input) => api('/api/gmail', { tool, input });
+    // Reads are shared: the same search asked several times at once becomes one request,
+    // and its answer is reused for a minute.
+    const READS = new Set(['search_threads', 'get_thread', 'status']);
+    const cache = new Map();
+    const cached = (server, tool, input, maxAge = 60000, force = false) => {
+      const k = tool + '|' + JSON.stringify(input || {}); const hit = cache.get(k);
+      if (hit && (hit.pending || (hit.failed ? Date.now() - hit.at < 15000 : !force && Date.now() - hit.at < maxAge))) return hit.p;
+      const e = { at: Date.now(), pending: true };
+      // a failure is remembered for 15 seconds, so redraws of the screen do not hammer Gmail
+      e.p = raw(server, tool, input).then(r => { e.pending = false; e.at = Date.now(); return r; }, err => { e.pending = false; e.failed = true; e.at = Date.now(); throw err; });
+      e.p.catch(() => {});
+      cache.set(k, e); if (cache.size > 60) cache.delete(cache.keys().next().value);
+      return e.p;
+    };
+    const callTool = (server, tool, input) => READS.has(tool) ? cached(server, tool, input, 20000) : raw(server, tool, input).then(r => { cache.clear(); return r; });
     return {
       callTool,
       watchTool(server, tool, input, cb, opts = {}) {
         let alive = true, timer;
-        const run = async () => {
+        const run = async (force) => {
           if (!alive) return;
-          try { const result = await callTool(server, tool, input); if (alive) cb({ type: 'data', result }); }
-          catch (error) { if (alive) cb({ type: 'error', error }); }
-          if (alive && opts.refetchInterval) { clearTimeout(timer); timer = setTimeout(run, opts.refetchInterval); }
+          let failed = false;
+          try { const result = await cached(server, tool, input, opts.cache?.staleTime ?? 60000, force === true); if (alive) cb({ type: 'data', result }); }
+          catch (error) { failed = true; if (alive) cb({ type: 'error', error }); }
+          // after an error wait longer, so a busy Gmail is not hit again right away
+          if (alive && opts.refetchInterval) { clearTimeout(timer); timer = setTimeout(() => run(true), failed ? Math.max(opts.refetchInterval, 180000) : opts.refetchInterval); }
         };
         const w = { run }; watchers.add(w); run();
         return () => { alive = false; clearTimeout(timer); watchers.delete(w); };
       },
-      async invalidate() { watchers.forEach(w => w.run()); },
+      async invalidate() { cache.clear(); watchers.forEach(w => w.run(true)); },
     };
   }
 

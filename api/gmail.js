@@ -4,16 +4,28 @@ import { appPasswordSet, imapTools } from '../lib/gmail-imap.js';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
-async function g(token, path, init = {}) {
+const wait = ms => new Promise(r => setTimeout(r, ms));
+async function g(token, path, init = {}, attempt = 0) {
   const r = await fetch(API + path, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(init.headers || {}) } });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const e = new Error(j?.error?.message || `Gmail ${r.status}`);
-    e.code = r.status === 401 ? 'needs_reauth' : r.status === 403 && /scope|permission/i.test(e.message) ? 'needs_reauth' : r.status >= 500 || r.status === 429 ? 'server_unavailable' : 'tool_error';
+    const msg = j?.error?.message || `Gmail ${r.status}`;
+    const busy = r.status === 429 || (r.status === 403 && /quota|rate limit|too many/i.test(msg));
+    // Google's per-second limit: back off and try again a couple of times (reads only).
+    if (busy && attempt < 2 && (!init.method || init.method === 'GET')) { await wait(1200 * (attempt + 1)); return g(token, path, init, attempt + 1); }
+    const e = new Error(busy ? 'Gmail is busy, try again in a moment' : msg);
+    e.code = r.status === 401 ? 'needs_reauth' : busy ? 'server_unavailable' : r.status === 403 && /scope|permission/i.test(msg) ? 'needs_reauth' : r.status >= 500 ? 'server_unavailable' : 'tool_error';
     throw e;
   }
   return j;
 }
+// Run tasks a few at a time so a search stays far below Google's per-second limit.
+async function pooled(items, size, fn) {
+  const out = new Array(items.length); let next = 0;
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i]); } }));
+  return out;
+}
+const threadCache = new Map(); // thread id → { historyId, value }; lives while this instance is warm
 
 const hdr = (m, name) => (m.payload?.headers || []).find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
 function parseAddrs(s) {
@@ -70,11 +82,16 @@ const TOOLS = {
   async search_threads(token, i) {
     const n = Math.min(Number(i.pageSize) || 25, 40);
     const list = await g(token, `/threads?maxResults=${n}&q=${encodeURIComponent(i.query || 'in:inbox')}`);
-    const threads = await Promise.all((list.threads || []).map(async t => {
+    const threads = await pooled(list.threads || [], 4, async t => {
+      const hit = threadCache.get(t.id);
+      if (hit && hit.historyId === t.historyId) return hit.value;
       const th = await g(token, `/threads/${t.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`);
       const msgs = (th.messages || []).map(m => shape(m)).reverse(); // newest first
-      return { id: th.id, messageCount: msgs.length, messages: msgs };
-    }));
+      const value = { id: th.id, messageCount: msgs.length, messages: msgs };
+      if (threadCache.size > 500) threadCache.clear();
+      threadCache.set(t.id, { historyId: t.historyId, value });
+      return value;
+    });
     return { payload: { threads } };
   },
   async get_thread(token, i) {
