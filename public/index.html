@@ -498,6 +498,8 @@ details.menu > summary::-webkit-details-marker{display:none}
 .mbox .mb{padding:18px;display:flex;flex-direction:column;gap:14px}
 .mbox .mf{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
 .note{border-radius:8px;padding:10px 12px;font-size:13px;background:var(--info-soft);color:var(--info)}
+/* icons inside text never grow past text size */
+:where(.note,.hidnote,.banner,.toast,.pill,small,p,label,.muted) > svg{width:16px;height:16px;flex:none;vertical-align:-3px;display:inline-block}
 .note.bad{background:var(--bad-soft);color:var(--bad)}
 .note.warn{background:var(--warn-soft);color:var(--warn)}
 .note.ok{background:var(--ok-soft);color:var(--ok)}
