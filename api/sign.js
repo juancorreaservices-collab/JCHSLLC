@@ -1,4 +1,4 @@
-import { admin } from '../lib/auth.js';
+import { admin, origin } from '../lib/auth.js';
 import { gmailAccessToken } from '../lib/google.js';
 
 // Public endpoint behind the page a client opens to review and sign an estimate.
@@ -10,13 +10,23 @@ async function load(sb, token) {
   return data?.data || null;
 }
 
-async function notifyOwner(sb, share, name) {
+const h = x => String(x || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function notifyOwner(sb, share, name, site) {
   try {
     const { token, email } = await gmailAccessToken(sb); if (!email) return;
-    const subject = `Signed: Estimate ${share.number} - ${name}`;
-    const text = `${name} reviewed and signed estimate ${share.number}${share.property ? ' for ' + share.property : ''} (total ${share.total}).\r\n\r\nOpen Kuadra to see the signature and create the invoice.`;
-    const raw = Buffer.from(`To: ${email}\r\nSubject: ${subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${text}`, 'utf8').toString('base64url');
-    await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
+    const subject = `Firmado: estimado ${share.number} - ${name}. Aprueba la factura`;
+    const link = `${site}/#aprobar=${encodeURIComponent(share.estimateId)}`;
+    const text = `${name} firmó el estimado ${share.number}${share.property ? ' de ' + share.property : ''} por ${share.total}.\r\n\r\nKuadra ya creó el proyecto. Falta tu aprobación para enviarle la factura al cliente:\r\n${link}\r\n`;
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#0B1B33;max-width:560px">
+      <p style="font-size:16px;margin:0 0 12px"><b>${h(name)}</b> firmó el estimado <b>${h(share.number)}</b>${share.property ? ' de ' + h(share.property) : ''}.</p>
+      <p style="font-size:26px;font-weight:bold;margin:0 0 14px">${h(share.total)}</p>
+      <p style="font-size:14px;color:#44536B;margin:0 0 18px">Kuadra ya creó el proyecto. Falta tu aprobación para enviarle la factura al cliente con el link de pago.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#0B1B33" style="background-color:#0B1B33;border-radius:8px"><a href="${h(link)}" style="display:block;padding:14px 22px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px">Revisar y aprobar la factura</a></td></tr></table>
+      <p style="font-size:12px;color:#8492A8;margin:16px 0 0">Si el botón no abre, copia este link: ${h(link)}</p></div>`;
+    const b = 'kuadra_' + Math.random().toString(36).slice(2);
+    const b64 = x => Buffer.from(x, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+    const mime = `To: ${email}\r\nSubject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary="${b}"\r\n\r\n--${b}\r\nContent-Type: text/plain; charset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64(text)}\r\n--${b}\r\nContent-Type: text/html; charset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64(html)}\r\n--${b}--`;
+    await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: Buffer.from(mime, 'utf8').toString('base64url') }) });
   } catch (_) { /* the signature is saved either way */ }
 }
 
@@ -61,7 +71,7 @@ export default async function handler(req, res) {
       num: (nums.length ? Math.max(...nums) : 0) + 1,
       name: clean(`${who} – ${share.summary || groups[0]?.area || 'Project'}`, 60),
       type: clean(groups.map(g => g.area).join(', '), 80), clientId: est.clientId || '', owner: who, location: clean(share.property, 120),
-      month, order: Date.now(), start: '', end: '', status: 'No comenzado', price: Number(share.totalNumber) || 0, down: '', downDate: '',
+      month, order: Date.now(), start: '', end: /^\d{4}-\d{2}-\d{2}$/.test(share.completion || '') ? share.completion : '', status: 'No comenzado', price: Number(share.totalNumber) || 0, down: '', downDate: '',
       payments: [], purchases: [], subs: [], profitNote: '',
       tasks: groups.map(g => ({ text: clean(g.area, 80), status: 'Pendiente', notes: clean((g.items || []).map(i => i.desc).join('; '), 300) })),
       notes: `Creado al firmarse el estimado ${share.number} (${name}, ${now.slice(0, 10)}).`, fromEstimate: share.estimateId, createdAt: now, updatedAt: now,
@@ -70,11 +80,11 @@ export default async function handler(req, res) {
     if (ins.error) projectId = '';   // the signature still counts; the owner can create the project by hand
   }
 
-  const next = { ...est, ...(projectId ? { projectId } : {}), status: 'Aceptado', acceptedAt: now, acceptedBy: name, sign: { name, at: now, ip, image }, signedSnapshot: { total: share.total, plan: share.plan, contract: share.contract },
+  const next = { ...est, ...(projectId ? { projectId } : {}), status: 'Aceptado', pendingApproval: '1', acceptedAt: now, acceptedBy: name, sign: { name, at: now, ip, image }, signedSnapshot: { total: share.total, plan: share.plan, contract: share.contract },
     replies: [...(est.replies || []), { id: 'sign-' + token.slice(0, 12), threadId: '', type: 'accepted', at: now, from: name, email: '', subject: '', snippet: 'Reviewed and signed online.', unread: '1' }], updatedAt: now };
   const a = await sb.from('docs').update({ data: next, updated_at: now }).eq('coll', 'estimates').eq('id', share.estimateId);
   if (a.error) return res.status(500).json({ code: 'failed', message: 'Could not save the signature. Please try again.' });
   await sb.from('docs').update({ data: { ...share, signed }, updated_at: now }).eq('coll', 'shares').eq('id', token);
-  await notifyOwner(sb, share, name);
+  await notifyOwner(sb, share, name, origin(req));
   res.status(200).json({ ok: true, signed });
 }

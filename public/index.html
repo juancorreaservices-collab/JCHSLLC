@@ -699,6 +699,15 @@ button.lrow:hover{background:var(--surface-2)}
 .plan-status.ok{color:var(--ok,#1e7a4c)}
 .plan-status.warn{color:var(--warn)}
 .plan-contract{font-size:14px;color:var(--ink-2);padding-top:4px}
+.apv{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.apv > div{display:flex;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.apv > div:last-child{border-bottom:0}
+.apv > div > span{color:var(--ink-2)}
+.apv .hl{background:var(--accent-soft);font-size:16px}
+.apv-plan{display:flex;flex-direction:column;gap:4px;margin-top:10px;font-size:13px;color:var(--ink-2)}
+.apv-plan > div{display:flex;justify-content:space-between;gap:12px}
+.apv-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:16px 18px;border-color:var(--accent);background:var(--accent-soft)}
+.apv-banner > div{display:flex;flex-direction:column;gap:2px;min-width:0}
 .signed{display:flex;align-items:center;gap:18px;padding:16px 18px;flex-wrap:wrap}
 .signed img{height:56px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
 .signed-t{display:flex;flex-direction:column;gap:2px}
@@ -1014,8 +1023,8 @@ function contractText(d){
   let x = (S.settings.contractTerms||'').trim(); if (!x) return '';
   const cl = S.clients[d.clientId] || {};
   x = x.replace('Client agrees to pay the total shown in this estimate according to the payment schedule above.', '{payments}');   // earlier wording of the base text
-  const v = { payments: paymentsClause(d), total: money(docTotals(d).total), property: (d.property||'').trim() || 'the property listed above', client: cl.name || 'Client', estimate: d.number || '' };
-  return x.replace(/\{(payments|total|property|client|estimate)\}/g, (_, k) => v[k]);
+  const v = { payments: paymentsClause(d), total: money(docTotals(d).total), property: (d.property||'').trim() || 'the property listed above', client: cl.name || 'Client', estimate: d.number || '', completion: d.completion ? fdateEn(d.completion) : 'a date to be agreed' };
+  return x.replace(/\{(payments|total|property|client|estimate|completion)\}/g, (_, k) => v[k]);
 }
 /* Invoices paid in parts: which payment is due now, given what has been paid. */
 function planDue(d){
@@ -1111,7 +1120,7 @@ async function boot(){
         if (c==='items') Object.values(S.items).forEach(x => { if (x._chunk) next[x.id] = x; });
         // keep unsaved local edits for the doc open in the drawer
         if (S.drawer && S.drawer.coll===c && next[S.drawer.id]) next[S.drawer.id] = S[c][S.drawer.id] || next[S.drawer.id];
-        S[c] = next; S.loaded[c] = !snap.metadata.fromCache || S.loaded[c]; if (c==='estimates') setTimeout(watchReplies, 0);
+        S[c] = next; S.loaded[c] = !snap.metadata.fromCache || S.loaded[c]; if (c==='estimates') setTimeout(watchReplies, 0); if (c==='estimates' || c==='invoices' || c==='clients') checkApprovals();
         if (!snap.metadata.fromCache){ S.live = true; clearTimeout(loadTimer); setDb('on','Guardado en la nube'); $('#banner').innerHTML=''; }
         renderView();
       }, e => { setDb('off','Error de datos'); clearTimeout(loadTimer); $('#banner').innerHTML = `<div class="banner">No se pudieron cargar los datos (${esc(e.code)}). Recarga la página.</div>`; });
@@ -1209,6 +1218,7 @@ function vPanel(){
   <div class="head"><div><h1>Panel</h1><p>${monthLabel(curMonth())}</p></div>
     <div class="tools"><button class="btn" data-act="new-project">${I.plus} Proyecto</button><button class="btn" data-act="new-est">${I.plus} Estimado</button><button class="btn primary" data-act="new-inv">${I.plus} Factura</button></div></div>
   ${loading()? loadingBlock('tus números') : `
+  ${pendingApprovals().map(e=>`<section class="card apv-banner"><div><b>${esc(e.sign.name)} firmó el estimado ${esc(e.number)}</b><span class="muted">${esc(docName(e,'estimates'))} · ${fmt(docTotals(e).total,1)} · firmado el ${fdate(e.sign.at)}</span></div><button class="btn primary" data-act="approve-open" data-id="${e.id}">Revisar y aprobar factura</button></section>`).join('')}
   <div class="grid g3">
     <button class="card tile link" data-go="facturas"><span class="label">Por cobrar en facturas</span><strong class="num">${fmt(openTotal)}</strong><small>${open.length} factura${open.length===1?'':'s'} abierta${open.length===1?'':'s'}</small></button>
     <button class="card tile link ${venc.length?'alert':''}" data-go="facturas"><span class="label">Facturas vencidas</span><strong class="num">${venc.length}</strong><small>${venc.length? fmt(venc.reduce((a,i)=>a+docTotals(i).balance,0))+' sin pagar' : 'Todo al día'}</small></button>
@@ -1655,14 +1665,14 @@ function quickClientModal(docColl, docId){
     `<button class="btn" data-act="modal-close">Cancelar</button><button class="btn primary" data-act="qc-save">Guardar cliente</button>`);
   setTimeout(()=>$('#qc-name')?.focus(), 50);
 }
-function convertEstimate(e){
+function convertEstimate(e, quiet){
   // copy every line; fold only the markup into each price, keep the discount as its own line (like Wave)
   const t = docTotals(e); const f = e.useMarkup ? 1 + N(e.markup)/100 : 1;
   const items = (e.items||[]).filter(r=>(r.desc||'').trim()||N(r.rate)).map(r=>({area:r.area||'', desc:r.desc||'', qty:r.qty||1, rate: Math.round(N(r.rate)*f*100)/100}));
   const diff = Math.round((t.base*f - items.reduce((a,r)=>a+N(r.qty||1)*N(r.rate),0))*100)/100;
   if (diff && items.length){ const last = items[items.length-1]; last.rate = Math.round((N(last.rate) + diff/N(last.qty||1))*100)/100; }
-  return newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:e.summary||'', items, taxRate:e.taxRate, showTax:e.showTax||'', fromEstimate:e.id, plan:(e.plan||[]).map(({label,when,kind,value})=>({label,when,kind,value})), showDisc:e.showDisc||'', discType:e.discType||'$', discLabel:e.discLabel||'', discount: e.showDisc ? (e.discType==='%' ? e.discount : Math.round(N(e.discount)*f*100)/100) : '', showPrices:'', hideQty:docCols(e,'estimates').qty?'':'1', hidePrice:docCols(e,'estimates').price?'':'1', hideAmount:docCols(e,'estimates').amount?'':'1', notes:S.settings.invTerms}, true).then(inv => {
-    e.convertedTo = inv.id; e.status = 'Aceptado'; persist('estimates', e, true); toast(`Factura ${inv.number} creada desde ${e.number}`); return inv;
+  return newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:e.summary||'', items, taxRate:e.taxRate, showTax:e.showTax||'', fromEstimate:e.id, plan:(e.plan||[]).map(({label,when,kind,value})=>({label,when,kind,value})), showDisc:e.showDisc||'', discType:e.discType||'$', discLabel:e.discLabel||'', discount: e.showDisc ? (e.discType==='%' ? e.discount : Math.round(N(e.discount)*f*100)/100) : '', showPrices:'', hideQty:docCols(e,'estimates').qty?'':'1', hidePrice:docCols(e,'estimates').price?'':'1', hideAmount:docCols(e,'estimates').amount?'':'1', notes:S.settings.invTerms}, true, quiet).then(inv => {
+    e.convertedTo = inv.id; e.status = 'Aceptado'; persist('estimates', e, true); if (!quiet) toast(`Factura ${inv.number} creada desde ${e.number}`); return inv;
   });
 }
 async function duplicateDoc(d, coll){
@@ -1786,7 +1796,7 @@ function newProject(month, extra={}){
   setTimeout(()=>{ const t=$('.title-in'); t?.select(); }, 250);
   return p;
 }
-async function newDoc(kind, base={}, save=false){
+async function newDoc(kind, base={}, save=false, quiet=false){
   const isInv = kind==='invoices';
   const number = save ? await nextNumber(isInv?'inv':'est') : peekNumber(kind);
   const cl = S.clients[base.clientId]; const pr = S.projects[base.projectId];
@@ -1797,7 +1807,7 @@ async function newDoc(kind, base={}, save=false){
   else { d.status = d.status || 'Borrador'; d.validUntil = d.validUntil || ''; }
   d.showArea = base.showArea ?? '1';
   if (S.drawer) persist(S.drawer.coll, cur(), true);
-  if (save){ persist(kind, d, true); openDoc(kind, d.id, 'edit'); }
+  if (save){ persist(kind, d, true); if (!quiet) openDoc(kind, d.id, 'edit'); }
   else openDoc(kind, d.id, 'edit', d, true);
   return d;
 }
@@ -1851,6 +1861,13 @@ async function act(name, el){
     case 'add-tax': o.showTax = '1'; persist(coll,o); renderDrawer('[data-k="taxRate"]'); return;
     case 'rm-tax': o.showTax = ''; o.taxRate = 0; persist(coll,o); renderDrawer(); return;
     case 'toggle-set': S.settings[el.dataset.key] = el.checked ? '1' : ''; saveSettings(); renderView(); return;
+    case 'approve-later': approvalsOff.add(el.dataset.id); closeModal(); if (S.view==='panel') renderView(); return;
+    case 'approve-open': approvalsOff.delete(el.dataset.id); return approvalPrompt(el.dataset.id);
+    case 'approve-open-est': closeModal(); return openDoc('estimates', el.dataset.id, 'view');
+    case 'approve-view': approvalsOff.add(S.invoices[el.dataset.id]?.fromEstimate); closeModal(); return openDoc('invoices', el.dataset.id, 'view');
+    case 'approve-send': { const inv = S.invoices[el.dataset.id]; if (!inv) return closeModal(); approvalsOff.add(el.dataset.est); el.disabled = true; closeModal();
+      S.view = 'facturas'; await composeDoc(inv, 'invoices');
+      setTimeout(() => { const b = $('[data-act="send-mail"][data-mode="send"]'); if (b && $('#m-to')?.value.trim()) b.click(); }, 150); return; }
     case 'copy-share': { const e = cur(); try { const u = await ensureShare(e); await navigator.clipboard.writeText(u); toast('Link copiado'); } catch(_){ toast('No se pudo copiar el link'); } return; }
     case 'contract-sample': S.settings.contractTerms = CONTRACT_SAMPLE; saveSettings(); renderView(); toast('Contrato base agregado. Léelo completo antes de usarlo.'); return;
     case 'plan-preset': o.plan = PLAN_PRESETS[el.dataset.v].map(([label,when,kind,value])=>({label,when,kind,value})); o.showDep = ''; o.deposit = ''; persist(coll,o); return renderDrawer(el.dataset.v==='custom'?'[data-list="plan"][data-i="0"][data-k="value"]':undefined);
@@ -2424,7 +2441,7 @@ function docEdit(d, coll, isInv){
           ${metaRow(isInv?'Número P.O./S.O.':'Referencia del cliente', mIn('po', d.po))}
           ${metaRow(isInv?'Fecha de factura':'Fecha', mIn('date', d.date, 'date'))}
           ${isInv ? metaRow('Fecha de pago', mIn('due', d.due, 'date') + `<select class="in plain sm" data-k="terms">${TERMS.map(([v,l])=>`<option value="${v}" ${v===terms?'selected':''}>${l}</option>`).join('')}</select>`)
-                  : metaRow('Válido hasta', mIn('validUntil', d.validUntil, 'date'), days!=null && days>=0 ? `Dentro de ${days} días` : 'Opcional')}
+                  : metaRow('Válido hasta', mIn('validUntil', d.validUntil, 'date'), days!=null && days>=0 ? `Dentro de ${days} días` : 'Opcional') + metaRow('Terminación estimada', mIn('completion', d.completion, 'date'), d.completion ? '' : 'Opcional')}
         </div>
       </div>
 
@@ -2497,7 +2514,7 @@ function docView(d, coll, isInv){
     </section>
     ${conv?`<div class="note ok">Este estimado se convirtió en la factura <b>${esc(conv.number)}</b>.</div>`:''}
     ${!isInv && d.sign?.name ? `<section class="card signed"><div><span class="pill ok">Firmado</span></div>${d.sign.image?`<img src="${esc(d.sign.image)}" alt="Firma de ${esc(d.sign.name)}">`:''}<div class="signed-t"><b>${esc(d.sign.name)}</b><span class="muted">Firmó el ${fdate(d.sign.at)}${d.sign.ip?' · IP '+esc(d.sign.ip):''}</span></div>${d.projectId && S.projects[d.projectId]?`<button class="btn sm" style="margin-left:auto" data-open="projects:${d.projectId}">Ver proyecto ${esc(pnum(S.projects[d.projectId]))}</button>`:''}</section>` : ''}
-    ${!isInv && (d.plan||[]).length ? (() => { const pr = planRows(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${planStatus(pr)}</span></div>${pr.rows.map((r,i)=>{ const inv = r.invoiceId && S.invoices[r.invoiceId]; const st2 = inv && invStatus(inv); return `<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span>${inv?`<span class="pill ${st2[1]}">${st2[0]}</span>`:''}<b class="num">${fmt(r.amount,1)}</b>${inv?`<button class="btn sm" data-open="invoices:${inv.id}">Ver factura</button>`:`<button class="btn sm" data-act="plan-invoice" data-i="${i}">Facturar</button>`}</div>`; }).join('')}</section>`; })() : ''}
+    ${!isInv && (d.plan||[]).length ? (() => { const pr = planRows(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${planStatus(pr)}</span></div>${pr.rows.map((r,i)=>{ const inv = r.invoiceId && S.invoices[r.invoiceId]; const st2 = inv && invStatus(inv); return `<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span>${inv?`<span class="pill ${st2[1]}">${st2[0]}</span>`:''}<b class="num">${fmt(r.amount,1)}</b>${inv?`<button class="btn sm" data-open="invoices:${inv.id}">Ver factura</button>`:''}</div>`; }).join('')}</section>`; })() : ''}
     ${isInv && (d.plan||[]).length ? (() => { const pd = planDue(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${pd.balance>0.004?`Toca cobrar ahora: ${fmt(pd.dueNow,1)}`:'Todo pagado'}</span></div>${pd.rows.map((r,i)=>`<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span><span class="pill ${r.st==='paid'?'ok':r.st==='partial'?'warn':''}">${r.st==='paid'?'Pagado':r.st==='partial'?'Falta '+fmt(r.left,1):'Pendiente'}</span><b class="num">${fmt(r.amount,1)}</b></div>`).join('')}</section>`; })() : ''}
     ${!isInv && d.shareToken && window.claude?.standalone ? `<div class="note">${I.link} Página para que el cliente revise y firme: <a href="/e/${esc(d.shareToken)}" target="_blank" rel="noopener">${esc(location.origin)}/e/${esc(d.shareToken)}</a> <button class="btn sm" data-act="copy-share">Copiar link</button></div>` : ''}
     ${!isInv ? repliesCard(d) : ''}
@@ -2627,6 +2644,7 @@ function paperHTML(d, coll){
     <div><h2>${isInv?'INVOICE':'ESTIMATE'}</h2><div class="meta">${isInv?'Invoice # '+esc(d.number)+'<br>':''}${!isInv?'Estimate # '+esc(d.number)+'<br>':''}Date: ${fdateEn(d.date)}${isInv&&d.due?'<br>Due: '+fdateEn(d.due):''}${!isInv&&d.validUntil?'<br>Valid until: '+fdateEn(d.validUntil):''}${d.po?(isInv?'<br>P.O./S.O.: ':'<br>Reference: ')+esc(d.po):''}</div></div></div>
     <div class="two"><div><div class="lab">${isInv?'Bill to':'Prepared for'}</div><b>${esc(cl.name||'—')}</b>${cl.email?'<br>'+esc(cl.email):''}</div>
       ${d.property?`<div><div class="lab">Property</div>${esc(d.property)}</div>`:''}
+      ${!isInv && d.completion?`<div><div class="lab">Estimated completion</div>${fdateEn(d.completion)}</div>`:''}
       <div><div class="lab">Prepared by</div>${esc(st.ownerName)}<br>${esc(st.tradeName)}</div></div>
     ${d.summary?`<div style="font-weight:800;font-size:16px;margin:-4px 0 6px">${esc(d.summary)}</div>`:''}`;
   const bullets = () => areasOf(d).map(g=>`<div style="margin-top:14px"><div style="font-weight:800;border-bottom:2px solid #15171a;padding-bottom:4px;margin-bottom:6px">${esc(g.area)}</div><ul style="margin:0;padding-left:18px">${g.items.map(i=>`<li style="margin:3px 0">${esc(i.desc)}${N(i.qty)>1?` (${N(i.qty)})`:''}</li>`).join('')}</ul></div>`).join('') || '<p style="color:#7b828c">Add work items to see them here.</p>';
@@ -2714,6 +2732,7 @@ function makePDF(d, coll){
     if (isInv){ row('Total', money(t.total)); if (t.paid) row('Paid', '-'+money(t.paid)); row('Balance due', money(t.balance), true); }
     else row('TOTAL', money(t.total), true);
   }
+  if (!isInv && d.completion){ need(24); pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text('Estimated completion:', M, y); pdf.setFont('helvetica','normal'); pdf.text(fdateEn(d.completion), M+124, y); y += 20; }
   if (!isInv && t.dep){ pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.text('Deposit required', W-M-220, y); pdf.text(money(t.dep), W-M, y, {align:'right'}); y += 20; }
   y += 10;
   if (isInv){
@@ -2788,6 +2807,7 @@ function shareSnapshot(d){
   if (cols.qty||cols.price||cols.amount||t.disc||N(d.taxRate)){ lines.push(['Subtotal', money(t.base*f)]); if (t.disc) lines.push(['Discount'+(d.discLabel?` (${d.discLabel})`:''), '-'+money(t.disc*f)]); if (N(d.taxRate)) lines.push([`Tax (${N(d.taxRate)}%)`, money(t.tax)]); }
   return { kind:'estimate', estimateId:d.id, number:d.number, date:d.date||'', validUntil:d.validUntil||'',
     business:{ tradeName:st.tradeName||'', legalName:st.legalName||'', ownerName:st.ownerName||'', phone:st.phone||'', email:st.email||'', address:st.address||'', license:st.license||'' },
+    completion: d.completion||'',
     client:{ name:cl.name||'', address:fullAddr(cl).replace(/<[^>]+>/g,' ').trim() }, property:d.property||'', summary:d.summary||'',
     cols, groups: areasOf(d).map(g=>({area:g.area, items:g.items.map(r=>({desc:r.desc, qty:N(r.qty||1), price: cols.price?money(N(r.rate)*f):'', amount: cols.amount?money(N(r.qty||1)*N(r.rate)*f):''}))})),
     lines, total: money(t.total), totalNumber: t.total,
@@ -2834,6 +2854,7 @@ function mailLayout(d, coll, text, shareUrl){
     const scope = areas.length ? areas.slice(0,8) : items.slice(0,5).map(r=>r.desc.trim().slice(0,70));
     const more = (areas.length ? areas.length : items.length) - scope.length;
     card = `${label('Estimate total')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.total)}</div>
+      ${d.completion ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">${row('Estimated completion', fdateEn(d.completion))}</table>` : ''}
       ${scope.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px">${label('Scope of work')}<div style="${F}font-size:14px;line-height:1.9;color:${INK};margin-top:6px">${scope.map(esc).join('<br>')}${more>0?`<br><span style="color:${MUTE}">and ${more} more, see the attached PDF</span>`:''}</div></div>` : ''}
       ${(() => { const pr = planRows(d); return pr.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:12px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pr.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${INK}">${esc(r.label||'Payment '+(i+1))}${r.when?`<span style="color:${MUTE}"> · ${esc(r.when)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${INK};white-space:nowrap">${money(r.amount)}</td></tr>`).join('')}</table></div>` : ''; })()}
       ${shareUrl ? button(shareUrl, 'Review and Sign') : button(acc, 'Accept Estimate')}
@@ -2947,6 +2968,45 @@ function gmailErr(e){
     tool_error:'Gmail rechazó la acción: '+(e?.message||''),
   }[c];
   return m || ('No se pudo usar Gmail' + (e?.message?': '+e.message:'.'));
+}
+/* ---------- Signed estimates wait for the owner's approval before the invoice goes out ---------- */
+const approvalsOff = new Set();   // "later" for this visit
+function pendingApprovals(){
+  return list('estimates').filter(e => e.sign?.name && e.pendingApproval && !(e.convertedTo && S.invoices[e.convertedTo]?.sentAt)).sort((a,b)=>String(b.sign.at).localeCompare(String(a.sign.at)));
+}
+let approvalBusy = false;
+async function approvalPrompt(id){
+  const e = S.estimates[id]; if (!e || !e.sign?.name || approvalBusy) return;
+  approvalBusy = true;
+  try {
+    let inv = e.convertedTo && S.invoices[e.convertedTo];
+    if (!inv){
+      if (!e.clientId){ openModal('Estimado firmado', `<p><b>${esc(e.sign.name)}</b> firmó el estimado ${esc(e.number)}, pero el estimado no tiene cliente. Ábrelo, elige el cliente y conviértelo en factura.</p>`, `<button class="btn" data-act="modal-close">Cerrar</button><button class="btn primary" data-act="approve-open-est" data-id="${e.id}">Abrir estimado</button>`); return; }
+      inv = await convertEstimate(e, true);
+    }
+    const t = docTotals(inv); const pd = planDue(inv); const cl = S.clients[inv.clientId] || {};
+    openModal('Estimado firmado: aprobar factura', `
+      <p style="margin:0 0 12px"><b>${esc(e.sign.name)}</b> firmó el estimado <b>${esc(e.number)}</b> el ${fdate(e.sign.at)}. Ya se creó la factura <b>${esc(inv.number)}</b>${inv.projectId && S.projects[inv.projectId] ? ` en el proyecto <b>${esc(S.projects[inv.projectId].name)}</b>` : ''}.</p>
+      <div class="apv">
+        <div><span>Cliente</span><b>${esc(cl.name||'—')}</b></div>
+        <div><span>Se envía a</span><b>${cl.email ? esc(cl.email) : '<span class="pill warn">Sin email</span>'}</b></div>
+        <div><span>Total de la factura</span><b>${fmt(t.total,1)}</b></div>
+        <div class="hl"><span>Se cobra ahora${pd.next?` · ${esc(pd.next.label||'Pago 1')}`:''}</span><b>${fmt(pd.dueNow,1)}</b></div>
+      </div>
+      ${pd.rows.length ? `<div class="apv-plan">${pd.rows.map((r,i)=>`<div><span>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.when?' · '+esc(r.when):''}</span><b>${fmt(r.amount,1)}</b></div>`).join('')}</div>` : ''}
+      <p class="muted" style="font-size:13px;margin:12px 0 0">Al aprobar, Kuadra crea el link de pago por ${fmt(pd.dueNow,1)} y le envía la factura al cliente desde tu Gmail.</p>`,
+      `<button class="btn ghost" data-act="approve-later" data-id="${e.id}">Más tarde</button><button class="btn" data-act="approve-view" data-id="${inv.id}">Revisar factura</button><button class="btn primary" data-act="approve-send" data-id="${inv.id}" data-est="${e.id}">${I.send} Aprobar y enviar</button>`);
+  } finally { approvalBusy = false; }
+}
+let approvalTimer = null;
+function checkApprovals(){
+  clearTimeout(approvalTimer);
+  approvalTimer = setTimeout(() => {
+    if (loading() || !$('#modal').hidden || (S.view==='doc' && S.doc?.mode==='edit')) return;
+    const want = S.approveFromLink && S.estimates[S.approveFromLink] ? S.estimates[S.approveFromLink] : pendingApprovals().find(e=>!approvalsOff.has(e.id));
+    S.approveFromLink = '';
+    if (want) approvalPrompt(want.id);
+  }, 400);
 }
 /* ---------- Commas: payment links created and tracked automatically (standalone app) ---------- */
 async function ensurePayLink(inv, force){
@@ -3387,7 +3447,7 @@ function vSettings(){
     <div class="fgrid">${f('Prefijo de factura','invPrefix')}${f('Siguiente número de factura','invNext','number')}${f('Prefijo de estimado','estPrefix')}${f('Siguiente número de estimado','estNext','number')}${f('Impuesto por defecto (%)','taxRate','number')}${f('Días para pagar','payDays','number')}${f('Ganancia a sumar en estimados (%)','markup','number','15','Se aplica al total cuando eliges "Sumar % al total" en un estimado.')}${f('Mínimo para 1099-NEC ($)','threshold1099','number','2000','Pagos a un subcontratista desde este monto aparecen marcados en Reportes. Confírmalo con tu contador.')}
     <label class="f full"><span>Notas por defecto en estimados</span><textarea class="in" data-set="estTerms" rows="3">${esc(st.estTerms)}</textarea></label>
     <label class="f full"><span>Contrato que firma el cliente al aceptar un estimado (en inglés)</span><textarea class="in" data-set="contractTerms" rows="10" placeholder="Escribe aquí los términos de tu contrato. Si lo dejas vacío, el cliente acepta el estimado sin contrato.">${esc(st.contractTerms||'')}</textarea>
-      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. Dentro del texto puedes usar <code>{payments}</code> (el total y el plan de pagos de ese estimado), <code>{total}</code>, <code>{property}</code>, <code>{client}</code> y <code>{estimate}</code>: Kuadra los reemplaza en cada estimado. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar el contrato base</button>`}</small></label>
+      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. Dentro del texto puedes usar <code>{payments}</code> (el total y el plan de pagos de ese estimado), <code>{total}</code>, <code>{property}</code>, <code>{client}</code>, <code>{estimate}</code> y <code>{completion}</code> (la fecha estimada de terminación): Kuadra los reemplaza en cada estimado. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar el contrato base</button>`}</small></label>
     <label class="chk full" style="grid-column:1/-1"><input type="checkbox" data-act="toggle-set" data-key="flNotices" ${st.flNotices?'checked':''}> Agregar los avisos que exige Florida cuando el total pasa de $2,500 (ley de gravámenes y fondo de recuperación)</label>
     ${st.flNotices ? `<label class="f full"><span>Dirección y teléfono de la junta de licencias, que va al final del aviso del fondo de recuperación</span><input class="in" data-set="cilbContact" value="${esc(st.cilbContact||'')}"><small class="muted">Confirma estos datos en el sitio del DBPR de Florida antes de usarlos.${(st.license||'').trim()?'':' <b>Falta tu número de licencia</b> arriba, en los datos del negocio: la ley pide que aparezca en cada contrato y propuesta.'}</small></label>` : ''}
     <label class="f full"><span>Notas por defecto en facturas</span><textarea class="in" data-set="invTerms" rows="3">${esc(st.invTerms)}</textarea></label></div></section>
@@ -3406,7 +3466,7 @@ async function exportCSV(){
 document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(m => { if (!m.contains(e.target) || e.target.closest('.menu-list button')) m.open = false; }); });
 document.addEventListener('toggle', e => { if (e.target.matches?.('[data-acc]') && S.doc) S.doc.bizOpen = e.target.open; }, true);
 /* ---------- Start ---------- */
-(()=>{ const h = location.hash.slice(1); if (VIEWS.some(v=>v[0]===h)) S.view = h; })();
+(()=>{ const h = location.hash.slice(1); if (VIEWS.some(v=>v[0]===h)) S.view = h; const m = /^aprobar=([\w-]+)$/.exec(h); if (m){ S.approveFromLink = m[1]; try { history.replaceState(null,'','#panel'); } catch(_){} } })();
 boot();
 </script>
 
