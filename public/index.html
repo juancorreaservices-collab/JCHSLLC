@@ -2125,7 +2125,7 @@ function refreshDocTotals(d){
 function docView(d, coll, isInv){
   const t = docTotals(d); const s = docStatus(d, coll); const cl = S.clients[d.clientId];
   const conv = !isInv && d.convertedTo && S.invoices[d.convertedTo];
-  const primary = isInv ? (t.total>0 ? `<button class="btn primary" data-act="email-doc">${I.send} ${d.sentAt?'Reenviar':'Enviar'}</button>` : '')
+  const primary = isInv ? (t.total>0 ? `<button class="btn primary" data-act="email-doc">${I.send} Enviar</button>` : '')
     : (conv ? `<button class="btn primary" data-act="open-inv" data-id="${conv.id}">Ver factura ${esc(conv.number)}</button>` : `<button class="btn primary" data-act="est-to-inv">Convertir a factura</button>`);
   const more = `<details class="menu"><summary class="btn">Más acciones ▾</summary><div class="menu-list right">
     <button data-act="email-doc">Enviar por email</button><button data-act="pdf">Exportar PDF</button><button data-act="duplicate">Duplicar</button>
@@ -2149,7 +2149,7 @@ function docView(d, coll, isInv){
     ${isInv && d.fromEstimate && S.estimates[d.fromEstimate] ? `<div class="note">Creada desde el estimado <button class="linkbtn" data-act="open-est" data-id="${d.fromEstimate}">${esc(S.estimates[d.fromEstimate].number)}</button></div>`:''}
     <div class="steps">
       <section class="card step"><div class="step-i">1</div><div class="step-b"><h3>Crear</h3><p class="muted">Creado el ${fdate(d.createdAt||d.date)}</p></div><button class="btn sm" data-act="doc-edit">Editar ${docLabel(coll)}</button></section>
-      <section class="card step"><div class="step-i">2</div><div class="step-b"><h3>Enviar</h3><p class="muted">${sentLine}</p></div><div class="tools"><button class="btn sm ${d.sentAt?'':'primary'}" data-act="email-doc">${d.sentAt?'Reenviar':'Enviar '+docLabel(coll)}</button>${!d.sentAt && !isInv?`<button class="btn sm ghost" data-act="mark-sent">Marcar como enviado</button>`:''}</div></section>
+      <section class="card step"><div class="step-i">2</div><div class="step-b"><h3>Enviar</h3><p class="muted">${sentLine}</p></div><div class="tools"><button class="btn sm ${d.sentAt?'':'primary'}" data-act="email-doc">${'Enviar '+docLabel(coll)}</button>${!d.sentAt && !isInv?`<button class="btn sm ghost" data-act="mark-sent">Marcar como enviado</button>`:''}</div></section>
       ${isInv ? `<section class="card step col"><div style="display:flex;gap:14px;align-items:flex-start;width:100%;flex-wrap:wrap"><div class="step-i">3</div><div class="step-b"><h3>Cobrar</h3><p class="muted">Saldo ${fmt(t.balance,1)} de ${fmt(t.total,1)}</p></div>${t.balance>0.004?'':'<span class="pill ok">Pagada</span>'}</div>
           ${pays.length?`<div class="rows" style="width:100%">${pays.map((p,i)=>`<div class="payline"><span>${fdate(p.date)}</span><span class="muted">${esc(p.method||'')}</span><b class="num">${fmt(p.amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="payments" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}</div>`:''}
           <div style="width:100%;display:flex;flex-direction:column;gap:8px">${field('Link de pago de Commas para esta factura','payLink',d.payLink,'url')}
