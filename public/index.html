@@ -551,6 +551,8 @@ button.lrow:hover{background:var(--surface-2)}
 .row-acts .icon-btn{color:var(--ink-3)}
 .row-acts .icon-btn:hover{color:var(--bad)}
 .doc-danger{display:flex;justify-content:flex-end}
+.docname-cell b{font-weight:600}
+.docname-f .in{font-size:16px;font-weight:500}
 /* project page */
 .drawer.full .dr-b.pj-b{gap:18px;padding-top:18px}
 .pj-meta{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -857,6 +859,21 @@ const MON_EN = ['January','February','March','April','May','June','July','August
 const fdateEn = iso => { if(!iso) return ''; const [y,m,d]=String(iso).slice(0,10).split('-'); return MON_EN[+m-1]+' '+(+d)+', '+y; };
 const money = v => '$' + N(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 function areasOf(d){ const g=[]; (d.items||[]).filter(r=>(r.desc||'').trim()).forEach(r=>{ const a=(r.area||'').trim()||'Scope of Work'; let x=g.find(y=>y.area===a); if(!x){x={area:a,items:[]};g.push(x);} x.items.push(r); }); return g; }
+/* A readable name for each estimate / invoice, built from what it is about.
+   The owner can type his own in the editor; the number stays as the reference. */
+function autoDocName(d){
+  const street = String(d.property||'').split(',')[0].trim();
+  const proj = S.projects[d.projectId];
+  if (proj?.name) return proj.name;
+  const items = (d.items||[]).filter(r=>(r.desc||'').trim());
+  const areas = [...new Set(items.map(r=>(r.area||'').trim()).filter(Boolean))];
+  let what = (d.summary||'').trim();
+  if (!what && areas.length) what = areas.slice(0,2).join(', ') + (areas.length>2 ? ` +${areas.length-2}` : '');
+  if (!what && items.length){ const t = items[0].desc.trim().replace(/\s+/g,' '); what = (t.length>42 ? t.slice(0,40).replace(/\s+\S*$/,'')+'…' : t) + (items.length>1 ? ` +${items.length-1}` : ''); }
+  if (what && street && !what.toLowerCase().includes(street.toLowerCase())) return `${what} · ${street}`;
+  return what || street || '';
+}
+const docName = (d, coll) => (d.name||'').trim() || autoDocName(d) || `${coll==='invoices'?'Factura':'Estimado'} ${d.number||''}`.trim();
 function invStatus(inv){
   const t = docTotals(inv);
   if (t.total>0 && t.balance <= 0.004) return ['Pagada','ok'];
@@ -1020,7 +1037,7 @@ function vPanel(){
 
   const open = invs.filter(i=>!['Pagada','Borrador'].includes(invStatus(i)[0]) && docTotals(i).balance>0.004).sort((x,y)=>String(x.due||x.date).localeCompare(String(y.due||y.date)));
   const openTotal = open.reduce((a,i)=>a+docTotals(i).balance,0);
-  const row = (coll, d, right, sub) => { const s2 = docStatus(d, coll); return `<button class="lrow" data-open="${coll}:${d.id}"><span class="lrow-m"><b>${esc(clientName(d.clientId)||'Sin cliente')}</b><small>${esc(d.number)}${sub?' · '+sub:''}</small></span><span class="pill ${s2[1]}">${s2[0]}</span><b class="num">${right}</b></button>`; };
+  const row = (coll, d, right, sub) => { const s2 = docStatus(d, coll); return `<button class="lrow" data-open="${coll}:${d.id}"><span class="lrow-m"><b>${esc(clientName(d.clientId)||'Sin cliente')}</b><small>${esc(docName(d,coll))} · ${esc(d.number)}${sub?' · '+sub:''}</small></span><span class="pill ${s2[1]}">${s2[0]}</span><b class="num">${right}</b></button>`; };
   return `
   <div class="head"><div><h1>Panel</h1><p>${monthLabel(curMonth())}</p></div>
     <div class="tools"><button class="btn" data-act="new-project">${I.plus} Proyecto</button><button class="btn" data-act="new-est">${I.plus} Estimado</button><button class="btn primary" data-act="new-inv">${I.plus} Factura</button></div></div>
@@ -1315,7 +1332,7 @@ function drProject(p){
         <div class="pj-pad"><textarea class="in" data-k="notes" rows="5" placeholder="Notas del proyecto">${esc(p.notes)}</textarea>${notesMic()}${linkify(p.notes)}</div>
       </section>
       <section class="card pj-card"><div class="pj-card-h"><h3>Estimados y facturas</h3><div class="tools"><button class="btn sm" data-act="est-from-project">${I.plus} Estimado</button><button class="btn sm" data-act="inv-from-project">${I.plus} Factura</button></div></div>
-        ${docs.length ? docs.map(([cl,d,lab,st2])=>`<button class="lrow" data-open="${cl}:${d.id}"><span class="lrow-m"><b>${lab} ${esc(d.number)}</b><small>${fdate(d.date)}</small></span><span class="pill ${st2[1]}">${st2[0]}</span><b class="num">${fmt(docTotals(d).total,1)}</b></button>`).join('') : `<div class="lempty">Sin estimados ni facturas todavía.</div>`}
+        ${docs.length ? docs.map(([cl,d,lab,st2])=>`<button class="lrow" data-open="${cl}:${d.id}"><span class="lrow-m"><b>${esc(docName(d,cl))}</b><small>${lab} ${esc(d.number)} · ${fdate(d.date)}</small></span><span class="pill ${st2[1]}">${st2[0]}</span><b class="num">${fmt(docTotals(d).total,1)}</b></button>`).join('') : `<div class="lempty">Sin estimados ni facturas todavía.</div>`}
       </section>`,
   };
   return `
@@ -2200,6 +2217,8 @@ function docEdit(d, coll, isInv){
       <div class="tools"><button class="btn outline" data-act="preview">Vista previa</button>
         <div class="split"><button class="btn primary" data-act="doc-save">Guardar y continuar</button><details class="menu"><summary class="btn primary caret" aria-label="Más opciones de guardar">▾</summary><div class="menu-list"><button data-act="doc-save-send">Guardar y enviar</button><button data-act="doc-cancel">Descartar cambios</button></div></details></div></div></div>
 
+    <label class="f docname-f"><span>Nombre (solo para ti; el cliente no lo ve)</span><input class="in plain" data-k="name" autocomplete="off" placeholder="${esc(autoDocName(d) || 'Se genera solo con el trabajo y la dirección')}" value="${esc(d.name||'')}"><small class="muted">Si lo dejas vacío, Kuadra lo genera solo.</small></label>
+
     <details class="biz-acc" ${D.bizOpen?'open':''} data-acc>
       <summary><span>Datos del negocio, título, resumen y logo</span><span class="chev">${I.right}</span></summary>
       <div class="biz-in">
@@ -2280,7 +2299,7 @@ function docView(d, coll, isInv){
   return `
   <div class="docpage">
     <button class="linkbtn back" data-act="doc-back">${I.left} ${isInv?'Facturas':'Estimados'}</button>
-    <div class="head dp-headline"><h1>${isInv?'Factura':'Estimado'} ${esc(d.number)}</h1><div class="tools">${primary}<button class="btn" data-act="doc-edit">Editar</button>${more}</div></div>
+    <div class="head dp-headline"><div><h1>${esc(docName(d,coll))}</h1><p>${isInv?'Factura':'Estimado'} ${esc(d.number)}${cl?' · '+esc(cl.name):''}</p></div><div class="tools">${primary}<button class="btn" data-act="doc-edit">Editar</button>${more}</div></div>
     <section class="card dp-sum">
       <div><span class="label">Estado</span><span class="pill ${s[1]}">${s[0]}</span></div>
       <div><span class="label">Cliente</span>${cl?`<button class="linkbtn" data-act="edit-client" data-id="${cl.id}">${esc(cl.name)}</button>`:'<span class="muted">Sin cliente</span>'}</div>
@@ -2341,7 +2360,7 @@ function vDocs(kind){
   const key = isInv ? 'invTab' : 'estTab';
   if (!tabs.some(t=>t[0]===S[key])) S[key] = tabs[0][0];
   const q = (S.docQ||'').toLowerCase();
-  const rows = all.filter(tabs.find(t=>t[0]===S[key])[2]).filter(d=>!q || [d.number, clientName(d.clientId), d.property, d.summary].join(' ').toLowerCase().includes(q));
+  const rows = all.filter(tabs.find(t=>t[0]===S[key])[2]).filter(d=>!q || [d.number, d.name, autoDocName(d), clientName(d.clientId), d.property, d.summary].join(' ').toLowerCase().includes(q));
   const today = todayISO(), in30 = addDays(today, 30);
   let tiles;
   if (isInv){
@@ -2376,8 +2395,8 @@ function vDocs(kind){
     <div class="tabbar-in"><div class="tabs" role="tablist">${tabs.map(([k,l,f])=>`<button role="tab" aria-selected="${S[key]===k}" data-act="doc-tab" data-key="${key}" data-v="${k}">${l} <span class="cnt">${all.filter(f).length}</span></button>`).join('')}</div>
       <label class="search"><span hidden>Buscar</span>${I.search}<input class="in plain" id="docq" placeholder="Buscar cliente o número" value="${esc(S.docQ||'')}"></label></div>
     ${rows.length? `<div class="tbl-wrap"><table>
-    <thead><tr><th>Estado</th><th>${isInv?'Vence':'Fecha'}</th><th>Número</th><th>Cliente</th><th class="n">${isInv?'Saldo':'Monto'}</th><th class="n">Total</th><th></th></tr></thead>
-    <tbody>${rows.map(d=>{const t=docTotals(d); const s=docStatus(d,kind); return `<tr class="click" data-open="${kind}:${d.id}"><td><span class="pill ${s[1]}">${s[0]}</span>${isInv?'':replyPill(d)}</td><td>${fdate(isInv?(d.due||d.date):d.date)}</td><td><b>${esc(d.number)}</b></td><td>${esc(clientName(d.clientId)||'—')}${d.summary?`<div class="muted" style="font-size:12px">${esc(d.summary)}</div>`:''}</td><td class="n"><b>${fmt(isInv?t.balance:t.total,1)}</b></td><td class="n muted">${fmt(t.total,1)}</td><td class="n"><span class="row-acts">${action(d)}<button class="icon-btn" data-act="row-del-ask" data-id="${d.id}" title="Eliminar" aria-label="Eliminar ${esc(d.number)}">${I.trash}</button></span></td></tr>`}).join('')}</tbody></table></div>`
+    <thead><tr><th>Estado</th><th>${isInv?'Vence':'Fecha'}</th><th>Nombre</th><th>Cliente</th><th class="n">${isInv?'Saldo':'Monto'}</th><th class="n">Total</th><th></th></tr></thead>
+    <tbody>${rows.map(d=>{const t=docTotals(d); const s=docStatus(d,kind); return `<tr class="click" data-open="${kind}:${d.id}"><td><span class="pill ${s[1]}">${s[0]}</span>${isInv?'':replyPill(d)}</td><td>${fdate(isInv?(d.due||d.date):d.date)}</td><td class="docname-cell"><b>${esc(docName(d,kind))}</b><div class="muted" style="font-size:12px">${esc(d.number)}</div></td><td>${esc(clientName(d.clientId)||'—')}</td><td class="n"><b>${fmt(isInv?t.balance:t.total,1)}</b></td><td class="n muted">${fmt(t.total,1)}</td><td class="n"><span class="row-acts">${action(d)}<button class="icon-btn" data-act="row-del-ask" data-id="${d.id}" title="Eliminar" aria-label="Eliminar ${esc(d.number)}">${I.trash}</button></span></td></tr>`}).join('')}</tbody></table></div>`
     : `<div class="empty"><h3>${all.length?'Nada en esta pestaña':(isInv?'Aún no hay facturas':'Aún no hay estimados')}</h3><span>${isInv?'Crea una factura o convierte un estimado aceptado. Al enviarla, tu cliente recibe el PDF y el botón de pago.':'Crea un estimado, envíalo por email y cuando lo acepten conviértelo en factura.'}</span>${all.length?'':`<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Crear factura':'Crear estimado'}</button>`}</div>`}
   </section>`}`;
 }
