@@ -983,8 +983,8 @@ function planRows(d){
   return { rows, sum, total, diff: Math.round((total-sum)*100)/100 };
 }
 const planStatus = pr => !pr.rows.length ? '' : Math.abs(pr.diff) < 0.01 ? `Los pagos suman el total: ${fmt(pr.total,1)}` : pr.diff > 0 ? `Faltan ${fmt(pr.diff,1)} por repartir` : `Los pagos pasan el total por ${fmt(-pr.diff,1)}`;
-const CONTRACT_SAMPLE = `1. Scope of work. Contractor will perform the work described in this estimate at the property listed above. Work that is not listed in this estimate is not included.
-2. Price and payments. Client agrees to pay the total shown in this estimate according to the payment schedule above.
+const CONTRACT_SAMPLE = `1. Scope of work. Contractor will perform the work described in estimate {estimate} at {property}. Work that is not listed in the estimate is not included.
+2. Price and payments. {payments}
 3. Late payments. If a payment is not received when it is due, Client has seven (7) days to make the payment. If it is not paid within those seven (7) days, Contractor may stop work until the payment is received.
 4. Changes. Any change to the scope of work or to the price must be agreed in writing (email is acceptable) before the additional work is done.
 5. Access. Client will provide access to the property so the work can be completed.
@@ -1001,7 +1001,30 @@ function legalNotices(d){
            { title:'FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND', text: FL_FUND_NOTICE + '\n' + (st.cilbContact||'').trim() } ];
 }
 
-const contractText = d => (d.noContract ? '' : (S.settings.contractTerms||'').trim());
+// Sentence that states the price and how it is paid, taken from the estimate itself.
+function paymentsClause(d){
+  const t = docTotals(d); const pr = planRows(d);
+  if (!pr.rows.length) return `Client agrees to pay the total of ${money(t.total)}.`;
+  const low = x => x ? x.charAt(0).toLowerCase() + x.slice(1) : '';
+  return `Client agrees to pay the total of ${money(t.total)} as follows: ` + pr.rows.map((r,i)=>`(${i+1}) ${r.label||'Payment '+(i+1)}, ${money(r.amount)}${r.kind==='%'?` (${N(r.value)}%)`:''}${r.when?', '+low(r.when):''}`).join('; ') + '.';
+}
+// The agreement text with its blanks filled in: {payments} {total} {property} {client} {estimate}
+function contractText(d){
+  if (d.noContract) return '';
+  let x = (S.settings.contractTerms||'').trim(); if (!x) return '';
+  const cl = S.clients[d.clientId] || {};
+  x = x.replace('Client agrees to pay the total shown in this estimate according to the payment schedule above.', '{payments}');   // earlier wording of the base text
+  const v = { payments: paymentsClause(d), total: money(docTotals(d).total), property: (d.property||'').trim() || 'the property listed above', client: cl.name || 'Client', estimate: d.number || '' };
+  return x.replace(/\{(payments|total|property|client|estimate)\}/g, (_, k) => v[k]);
+}
+/* Invoices paid in parts: which payment is due now, given what has been paid. */
+function planDue(d){
+  const t = docTotals(d); const pr = planRows(d); const bal = Math.max(0, Math.round(t.balance*100)/100);
+  let cum = 0, next = null;
+  const rows = pr.rows.map(r => { const before = cum; cum += r.amount; const got = Math.max(0, Math.min(r.amount, t.paid - before)); const left = Math.round((r.amount-got)*100)/100; const row = {...r, got, left, st: left < 0.005 ? 'paid' : got > 0.004 ? 'partial' : 'due'}; if (!next && left >= 0.005) next = row; return row; });
+  return { rows, next, balance: bal, dueNow: Math.round((next ? Math.min(next.left, bal) : bal)*100)/100 };
+}
+const dueNow = d => planDue(d).dueNow;
 function areasOf(d){ const g=[]; (d.items||[]).filter(r=>(r.desc||'').trim()).forEach(r=>{ const a=(r.area||'').trim()||'Scope of Work'; let x=g.find(y=>y.area===a); if(!x){x={area:a,items:[]};g.push(x);} x.items.push(r); }); return g; }
 /* A readable name for each estimate / invoice, built from what it is about.
    The owner can type his own in the editor; the number stays as the reference. */
@@ -1595,7 +1618,7 @@ function drDoc(d, coll){
     </section>
     <section class="sec"><div class="sec-h"><h3>Link de pago</h3></div>
       ${field('Link de pago de Commas para esta factura','payLink',d.payLink,'url','full')}
-      <div class="dr-actions">${S.commas && t.balance>0.5?`<button class="btn sm primary" data-act="commas-link">${I.link} ${d.payLink?'Crear link nuevo':'Crear link de pago'}</button>`:''}<a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">${I.link} Abrir Commas</a><button class="btn sm" data-act="copy-amt">Copiar monto: ${fmt(Math.max(0,t.balance),1)}</button><button class="btn sm" data-act="copy-pay">Copiar link</button></div>
+      <div class="dr-actions">${S.commas && t.balance>0.5?`<button class="btn sm primary" data-act="commas-link">${I.link} ${d.payLink?'Crear link nuevo':'Crear link de pago'}</button>`:''}<a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">${I.link} Abrir Commas</a><button class="btn sm" data-act="copy-amt">Copiar monto: ${fmt(dueNow(d),1)}</button><button class="btn sm" data-act="copy-pay">Copiar link</button></div>
       <span class="muted" style="font-size:12px">Crea en Commas un link por el saldo, pégalo aquí y envía la factura. Si lo dejas vacío se usan los métodos de <button class="btn sm ghost" data-go="ajustes">Ajustes</button>.</span>
     </section>`:''}
     ${d.sentAt? `<span class="muted" style="font-size:12px">${d.sentTo?'Enviado por email el '+fdate(d.sentAt)+' a '+esc(d.sentTo):'Marcado como enviado el '+fdate(d.sentAt)}.</span>`:''}
@@ -1638,7 +1661,7 @@ function convertEstimate(e){
   const items = (e.items||[]).filter(r=>(r.desc||'').trim()||N(r.rate)).map(r=>({area:r.area||'', desc:r.desc||'', qty:r.qty||1, rate: Math.round(N(r.rate)*f*100)/100}));
   const diff = Math.round((t.base*f - items.reduce((a,r)=>a+N(r.qty||1)*N(r.rate),0))*100)/100;
   if (diff && items.length){ const last = items[items.length-1]; last.rate = Math.round((N(last.rate) + diff/N(last.qty||1))*100)/100; }
-  return newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:e.summary||'', items, taxRate:e.taxRate, showTax:e.showTax||'', fromEstimate:e.id, showDisc:e.showDisc||'', discType:e.discType||'$', discLabel:e.discLabel||'', discount: e.showDisc ? (e.discType==='%' ? e.discount : Math.round(N(e.discount)*f*100)/100) : '', showPrices:'', hideQty:docCols(e,'estimates').qty?'':'1', hidePrice:docCols(e,'estimates').price?'':'1', hideAmount:docCols(e,'estimates').amount?'':'1', notes:S.settings.invTerms}, true).then(inv => {
+  return newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:e.summary||'', items, taxRate:e.taxRate, showTax:e.showTax||'', fromEstimate:e.id, plan:(e.plan||[]).map(({label,when,kind,value})=>({label,when,kind,value})), showDisc:e.showDisc||'', discType:e.discType||'$', discLabel:e.discLabel||'', discount: e.showDisc ? (e.discType==='%' ? e.discount : Math.round(N(e.discount)*f*100)/100) : '', showPrices:'', hideQty:docCols(e,'estimates').qty?'':'1', hidePrice:docCols(e,'estimates').price?'':'1', hideAmount:docCols(e,'estimates').amount?'':'1', notes:S.settings.invTerms}, true).then(inv => {
     e.convertedTo = inv.id; e.status = 'Aceptado'; persist('estimates', e, true); toast(`Factura ${inv.number} creada desde ${e.number}`); return inv;
   });
 }
@@ -1937,7 +1960,7 @@ async function act(name, el){
       return;
     }
     case 'copy-amt': {
-      const v = Math.max(0, docTotals(o).balance).toFixed(2);
+      const v = dueNow(o).toFixed(2);
       try { await navigator.clipboard.writeText(v); toast('Monto copiado: '+v); } catch(_){ toast('Monto: '+v); }
       return;
     }
@@ -2430,7 +2453,7 @@ function docEdit(d, coll, isInv){
         <div class="dtr total"><span>Total</span><span class="dtr-x"><span class="cur">USD</span></span><b class="num" data-tot="total">${fmt(t.total,1)}</b><span style="width:28px"></span></div>
       </div>
       ${!isInv && d.showDep ? `<div class="dp-dep"><div class="dtr"><span>Depósito requerido</span><span class="dtr-x"><input class="in plain n sm" data-k="deposit" inputmode="decimal" placeholder="0" value="${esc(d.deposit??'')}"><select class="in plain sm" data-k="depType"><option value="%" ${d.depType!=='$'?'selected':''}>%</option><option value="$" ${d.depType==='$'?'selected':''}>$</option></select></span><b class="num" data-tot="dep">${fmt(t.dep,1)}</b><button class="icon-btn" data-act="rm-dep" aria-label="Quitar depósito">${I.x}</button></div></div>` : ''}
-      ${!isInv ? (() => { const pr = planRows(d); const has = (d.plan||[]).length; return `<div class="dp-plan">
+      ${(() => { const pr = planRows(d); const has = (d.plan||[]).length; return `<div class="dp-plan">
         <div class="dp-plan-h"><div class="lbl">Plan de pagos</div>${has?`<button class="linkbtn muted-l" data-act="plan-clear">Quitar plan</button>`:''}</div>
         ${has ? `<div class="plan-rows">
             <div class="plan-row hd"><span>Pago</span><span>Cuándo</span><span class="r">Valor</span><span></span><span class="r">Monto</span><span></span></div>
@@ -2438,8 +2461,8 @@ function docEdit(d, coll, isInv){
           </div>
           <div class="plan-foot"><button class="linkbtn" data-act="plan-add">${I.plus} Agregar pago</button><span class="plan-status ${Math.abs(pr.diff)<0.01?'ok':'warn'}" data-plan-status>${planStatus(pr)}</span></div>`
         : `<div class="plan-presets"><span class="muted">Elige cómo se reparten los pagos:</span><button class="chip" data-act="plan-preset" data-v="50-50">50% / 50%</button><button class="chip" data-act="plan-preset" data-v="30-40-30">30% / 40% / 30%</button><button class="chip" data-act="plan-preset" data-v="thirds">3 pagos iguales</button><button class="chip" data-act="plan-preset" data-v="custom">Personalizado</button></div>`}
-        <label class="chk plan-contract"><input type="checkbox" data-act="contract-toggle" ${d.noContract?'':'checked'} ${(S.settings.contractTerms||'').trim()?'':'disabled'}> Incluir contrato para que el cliente firme al aceptar${(S.settings.contractTerms||'').trim()?'':' <span class="muted">(primero escribe el texto en Más → Ajustes)</span>'}</label>
-      </div>`; })() : ''}
+${!isInv ? `        <label class="chk plan-contract"><input type="checkbox" data-act="contract-toggle" ${d.noContract?'':'checked'} ${(S.settings.contractTerms||'').trim()?'':'disabled'}> Incluir contrato para que el cliente firme al aceptar${(S.settings.contractTerms||'').trim()?'':' <span class="muted">(primero escribe el texto en Más → Ajustes)</span>'}</label>` : ''}
+      </div>`; })()}
       <div class="dp-notes"><label class="f"><span class="label">Notas / Términos</span><textarea class="in plain" data-k="notes" rows="4" placeholder="Escribe notas o términos para el cliente">${esc(d.notes||'')}</textarea></label>${notesMic()}</div>
     </section>
     <div class="tools" style="justify-content:flex-end"><button class="btn outline" data-act="preview">Vista previa</button><button class="btn primary" data-act="doc-save">Guardar y continuar</button></div>
@@ -2475,6 +2498,7 @@ function docView(d, coll, isInv){
     ${conv?`<div class="note ok">Este estimado se convirtió en la factura <b>${esc(conv.number)}</b>.</div>`:''}
     ${!isInv && d.sign?.name ? `<section class="card signed"><div><span class="pill ok">Firmado</span></div>${d.sign.image?`<img src="${esc(d.sign.image)}" alt="Firma de ${esc(d.sign.name)}">`:''}<div class="signed-t"><b>${esc(d.sign.name)}</b><span class="muted">Firmó el ${fdate(d.sign.at)}${d.sign.ip?' · IP '+esc(d.sign.ip):''}</span></div>${d.projectId && S.projects[d.projectId]?`<button class="btn sm" style="margin-left:auto" data-open="projects:${d.projectId}">Ver proyecto ${esc(pnum(S.projects[d.projectId]))}</button>`:''}</section>` : ''}
     ${!isInv && (d.plan||[]).length ? (() => { const pr = planRows(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${planStatus(pr)}</span></div>${pr.rows.map((r,i)=>{ const inv = r.invoiceId && S.invoices[r.invoiceId]; const st2 = inv && invStatus(inv); return `<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span>${inv?`<span class="pill ${st2[1]}">${st2[0]}</span>`:''}<b class="num">${fmt(r.amount,1)}</b>${inv?`<button class="btn sm" data-open="invoices:${inv.id}">Ver factura</button>`:`<button class="btn sm" data-act="plan-invoice" data-i="${i}">Facturar</button>`}</div>`; }).join('')}</section>`; })() : ''}
+    ${isInv && (d.plan||[]).length ? (() => { const pd = planDue(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${pd.balance>0.004?`Toca cobrar ahora: ${fmt(pd.dueNow,1)}`:'Todo pagado'}</span></div>${pd.rows.map((r,i)=>`<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span><span class="pill ${r.st==='paid'?'ok':r.st==='partial'?'warn':''}">${r.st==='paid'?'Pagado':r.st==='partial'?'Falta '+fmt(r.left,1):'Pendiente'}</span><b class="num">${fmt(r.amount,1)}</b></div>`).join('')}</section>`; })() : ''}
     ${!isInv && d.shareToken && window.claude?.standalone ? `<div class="note">${I.link} Página para que el cliente revise y firme: <a href="/e/${esc(d.shareToken)}" target="_blank" rel="noopener">${esc(location.origin)}/e/${esc(d.shareToken)}</a> <button class="btn sm" data-act="copy-share">Copiar link</button></div>` : ''}
     ${!isInv ? repliesCard(d) : ''}
     ${(d.files||[]).length ? `<section class="card replies"><div class="sec-h"><h3>Documentos adjuntos</h3><span class="muted" style="font-size:12px">Solo para ti, no se envían al cliente</span></div><div class="aifiles">${d.files.map(f=>`<a class="fchip" href="/_blob/${esc(f.id)}" target="_blank" rel="noopener">${f.type==='application/pdf'?'PDF':'IMG'}<b>${esc(f.name)}</b></a>`).join('')}</div></section>` : ''}
@@ -2485,8 +2509,8 @@ function docView(d, coll, isInv){
       ${isInv ? `<section class="card step col"><div style="display:flex;gap:14px;align-items:flex-start;width:100%;flex-wrap:wrap"><div class="step-i">3</div><div class="step-b"><h3>Cobrar</h3><p class="muted">Saldo ${fmt(t.balance,1)} de ${fmt(t.total,1)}</p></div>${t.balance>0.004?'':'<span class="pill ok">Pagada</span>'}</div>
           ${pays.length?`<div class="rows" style="width:100%">${pays.map((p,i)=>`<div class="payline"><span>${fdate(p.date)}</span><span class="muted">${esc(p.method||'')}</span><b class="num">${fmt(p.amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="payments" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}</div>`:''}
           <div style="width:100%;display:flex;flex-direction:column;gap:8px">${field('Link de pago de Commas para esta factura','payLink',d.payLink,'url')}
-          <div class="dr-actions">${S.commas && t.balance>0.5?`<button class="btn sm primary" data-act="commas-link">${I.link} ${d.payLink?'Crear link nuevo':'Crear link de pago'}</button>`:''}<a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">${I.link} Abrir Commas</a><button class="btn sm" data-act="copy-amt">Copiar monto: ${fmt(Math.max(0,t.balance),1)}</button><button class="btn sm" data-act="copy-pay">Copiar link</button><button class="btn sm" data-act="copy-paymsg">Copiar mensaje para WhatsApp</button></div>
-          ${payLinks(d).some(l=>l.url)?`<span class="note ok" style="font-size:12px">${I.link} El email y el PDF llevan el botón de pago.</span>`:`<span class="note warn" style="font-size:12px">Falta el link de pago: crea uno en Commas por ${fmt(Math.max(0,t.balance),1)} y pégalo arriba antes de enviar.</span>`}</div></section>`
+          <div class="dr-actions">${S.commas && t.balance>0.5?`<button class="btn sm primary" data-act="commas-link">${I.link} ${d.payLink?'Crear link nuevo':'Crear link de pago'}</button>`:''}<a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">${I.link} Abrir Commas</a><button class="btn sm" data-act="copy-amt">Copiar monto: ${fmt(dueNow(d),1)}</button><button class="btn sm" data-act="copy-pay">Copiar link</button><button class="btn sm" data-act="copy-paymsg">Copiar mensaje para WhatsApp</button></div>
+          ${payLinks(d).some(l=>l.url)?`<span class="note ok" style="font-size:12px">${I.link} El email y el PDF llevan el botón de pago.</span>`:`<span class="note warn" style="font-size:12px">Falta el link de pago: crea uno en Commas por ${fmt(dueNow(d),1)} y pégalo arriba antes de enviar.</span>`}</div></section>`
       : `<section class="card step"><div class="step-i">3</div><div class="step-b"><h3>Respuesta del cliente</h3><p class="muted">${s[0]==='Convertido'?'Aceptado y convertido en factura':s[0]==='Aceptado'?(d.acceptedBy?`Aceptado por ${esc(d.acceptedBy)} por email el ${fdate(d.acceptedAt)}`:'Aceptado'):s[0]==='Rechazado'?'Rechazado':(d.sentAt?'Esperando respuesta. Si el cliente responde por email, aparece aquí solo.':'Esperando respuesta')}</p></div><div class="tools">${!conv?`<button class="btn sm" data-act="est-mark" data-v="Aceptado">Marcar aceptado</button><button class="btn sm ghost" data-act="est-mark" data-v="Rechazado">Marcar rechazado</button>`:''}</div></section>`}
     </div>
     <div class="paper">${paperHTML(d, coll)}</div>
@@ -2572,7 +2596,7 @@ function vDocs(kind){
 
 /* ---------- Payment links ---------- */
 function payLinks(inv){
-  const st = S.settings; const bal = Math.max(0, docTotals(inv).balance); const amt = bal.toFixed(2);
+  const st = S.settings; const bal = dueNow(inv); const amt = bal.toFixed(2);
   const out = [];
   const own = (inv.payLink||'').trim();
   // Commas (formerly FanBasis) is the main processor; any pasted link that isn't Stripe or Whop is treated as Commas
@@ -2620,9 +2644,9 @@ function paperHTML(d, coll){
       + (isInv ? `${line('Total', money(t.total))}${t.paid?line('Paid', '-'+money(t.paid)):''}${line('Balance due', money(t.balance), 'due')}` : `${line('TOTAL', money(t.total), 'due')}${t.dep?line('Deposit required', money(t.dep)):''}`) + `</div>`;
   }
   if (isInv && t.balance>0 && payLinks(d).length) body += `<div class="paybox"><div class="lab">How to pay</div><div>${payLinks(d).filter(l=>l.url).map(l=>`<a class="paybtn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.btn)}</a>`).join('')}</div>${payLinks(d).filter(l=>l.text).map(l=>`<div>${esc(l.text)}</div>`).join('')}</div>`;
+  { const pd = planDue(d);
+    if (pd.rows.length) body += `<div style="margin-top:22px"><div class="lab">Payment schedule</div><table style="margin-top:6px"><tbody>${pd.rows.map((r,i)=>`<tr><td style="width:28px;color:#7b828c">${i+1}.</td><td><b>${esc(r.label||'Payment '+(i+1))}</b>${r.when?`<div style="color:#4a5059;font-size:13px">${esc(r.when)}</div>`:''}</td><td class="n" style="color:#4a5059">${r.kind==='%'?N(r.value)+'%':''}</td><td class="n"><b>${money(r.amount)}</b>${isInv&&r.st==='paid'?'<div style="color:#1e7a4c;font-size:12px">Paid</div>':''}</td></tr>`).join('')}</tbody></table></div>`; }
   if (!isInv){
-    const pr = planRows(d);
-    if (pr.rows.length) body += `<div style="margin-top:22px"><div class="lab">Payment schedule</div><table style="margin-top:6px"><tbody>${pr.rows.map((r,i)=>`<tr><td style="width:28px;color:#7b828c">${i+1}.</td><td><b>${esc(r.label||'Payment '+(i+1))}</b>${r.when?`<div style="color:#4a5059;font-size:13px">${esc(r.when)}</div>`:''}</td><td class="n" style="color:#4a5059">${r.kind==='%'?N(r.value)+'%':''}</td><td class="n"><b>${money(r.amount)}</b></td></tr>`).join('')}</tbody></table></div>`;
     const ct = contractText(d);
     if (ct) body += `<div style="margin-top:22px"><div class="lab">Agreement</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-top:6px">${esc(ct)}</div></div>`;
     legalNotices(d).forEach(n => { body += `<div style="margin-top:22px;border:1px solid #15171a;padding:12px 14px"><div style="font-weight:800;font-size:16px;margin-bottom:6px">${esc(n.title)}</div><div style="white-space:pre-wrap;font-weight:800;font-size:16px;line-height:1.4">${esc(n.text)}</div></div>`; });
@@ -2698,16 +2722,16 @@ function makePDF(d, coll){
       links.forEach(l => { if (l.url){ pdf.setTextColor(31,58,95); pdf.textWithLink(`${l.btn}: ${l.url}`.slice(0,95), M, y, {url:l.url}); pdf.setTextColor(21,23,26); } else pdf.text(l.text, M, y); y += 16; }); y += 8; }
   }
   pdf.setTextColor(21,23,26);
-  if (!isInv){
-    const pr = planRows(d);
+  { const pr = planDue(d);
     if (pr.rows.length){
       need(34 + pr.rows.length*30); pdf.setFont('helvetica','bold'); pdf.setFontSize(11); pdf.text('Payment schedule', M, y); y += 18;
-      pr.rows.forEach((r,i) => { pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text(`${i+1}. ${r.label||'Payment '+(i+1)}`, M, y); pdf.text(money(r.amount), W-M, y, {align:'right'});
+      pr.rows.forEach((r,i) => { pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text(`${i+1}. ${r.label||'Payment '+(i+1)}`, M, y); pdf.text(isInv && r.st==='paid' ? `${money(r.amount)}  Paid` : money(r.amount), W-M, y, {align:'right'});
         if (r.kind==='%'){ pdf.setFont('helvetica','normal'); pdf.text(`${N(r.value)}%`, W-M-110, y, {align:'right'}); }
         if (r.when){ pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5); pdf.setTextColor(74,80,89); pdf.text(String(r.when), M+14, y+12); pdf.setTextColor(21,23,26); y += 12; }
         y += 18; });
       y += 8;
-    }
+    } }
+  if (!isInv){
     const ct = contractText(d);
     if (ct){
       pdf.setFont('helvetica','bold'); pdf.setFontSize(11); need(40); pdf.text('Agreement', M, y); y += 16;
@@ -2792,11 +2816,12 @@ function mailLayout(d, coll, text, shareUrl){
   const areas = [...new Set(items.map(r=>(r.area||'').trim()).filter(Boolean))];
   let card = '';
   if (isInv){
-    const links = t.balance>0.004 ? payLinks(d) : []; const main = links.find(l=>l.url); const others = links.filter(l=>l.text).map(l=>l.text);
+    const links = t.balance>0.004 ? payLinks(d) : []; const main = links.find(l=>l.url); const others = links.filter(l=>l.text).map(l=>l.text); const pd = planDue(d);
     const work = (d.summary||'').trim() || areas.slice(0,3).join(', ') || (items[0]?.desc||'').slice(0,60);
     card = t.balance>0.004
-      ? `${label('Amount due')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.balance)}</div>
-         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Invoice', esc(d.number))}${d.due?row('Due date', fdateEn(d.due)):''}${work?row('Work', esc(work)):''}${t.paid>0?row('Paid so far', money(t.paid)):''}</table>
+      ? `${label(pd.next ? 'Amount due now' : 'Amount due')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(pd.dueNow)}</div>
+         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Invoice', esc(d.number))}${pd.next?row('This payment', esc(pd.next.label||'Payment')):''}${d.due?row('Due date', fdateEn(d.due)):''}${work?row('Work', esc(work)):''}${pd.next?row('Invoice total', money(t.total)):''}${t.paid>0?row('Paid so far', money(t.paid)):''}</table>
+         ${pd.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:4px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pd.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${r.st==='paid'?MUTE:INK}">${esc(r.label||'Payment '+(i+1))}${r.when?`<span style="color:${MUTE}"> · ${esc(r.when)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${r.st==='paid'?'#1e7a4c':INK};white-space:nowrap">${r.st==='paid'?'Paid':money(r.left)}</td></tr>`).join('')}</table></div>` : ''}
          ${main ? button(main.url, 'Pay Now') + `<div style="${F}font-size:12px;color:${MUTE};margin-top:12px;text-align:center">Secure online payment. If the button does not work, open this link:<br><a href="${esc(main.url)}" style="color:${SOFT}">${esc(main.url)}</a></div>` : ''}
          ${others.length ? `<div style="${F}font-size:13px;color:${SOFT};margin-top:14px;padding-top:12px;border-top:1px solid ${LINE}">${main?'Other ways to pay: ':''}${others.map(esc).join(' &nbsp;·&nbsp; ')}</div>` : ''}`
       : `${label('Invoice '+esc(d.number))}<div style="${F}font-size:26px;font-weight:bold;color:#1e7a4c;margin:4px 0 4px">Paid in full</div><div style="${F}font-size:13px;color:${SOFT}">Total ${money(t.total)}. Thank you!</div>`;
@@ -2926,7 +2951,7 @@ function gmailErr(e){
 /* ---------- Commas: payment links created and tracked automatically (standalone app) ---------- */
 async function ensurePayLink(inv, force){
   if (!S.commas) return inv.payLink || '';
-  const t = docTotals(inv); const bal = Math.round(t.balance*100)/100;
+  const t = docTotals(inv); const bal = dueNow(inv);
   if (bal < 0.5) return '';
   const auto = inv.commasId && inv.payLink && inv.payLink === inv.commasUrl;
   if (!force && inv.payLink && (!auto || Math.abs(N(inv.commasAmt) - bal) < 0.005)) return inv.payLink;   // manual link, or auto link still for the right amount
@@ -2946,6 +2971,7 @@ async function checkCommasPayments(){
       let r; try { r = await S.commas.status(inv.commasId); } catch(_){ continue; }
       if (!r?.paid) continue;
       (inv.payments ||= []).push({date: todayISO(), amount: N(inv.commasAmt), method: 'Tarjeta (Commas) · pago en línea', commasId: inv.commasId});
+      inv.payLink = ''; inv.commasUrl = '';   // that link was for one payment; the next one gets its own
       syncInvoicePayments(inv); persist('invoices', inv, true);
       toast(`${clientName(inv.clientId)||'El cliente'} pagó ${fmt(inv.commasAmt,1)} de la factura ${inv.number}`);
       if (S.view==='doc') renderDocNow(); else renderView(); render();
@@ -2977,14 +3003,14 @@ function payLinkBox(d){
   const t = docTotals(d); const url = (d.payLink||'').trim(); const general = payLinks({...d, payLink:''}).find(l=>l.url);
   return `<div class="plbox ${url||general?'ok':'warn'}" id="m-plbox">
     <div class="plh">${url?`${I.link} Link de pago de esta factura`:(general?`${I.link} Se usará tu link general de ${esc(general.label)}`:`<b>⚠ Esta factura todavía no tiene link de pago de Commas</b>`)}</div>
-    ${!url && !general ? `<ol><li>Toca <b>Abrir Commas</b> y crea un link de pago por <b>${fmt(Math.max(0,t.balance),1)}</b>.</li><li>Copia el link y pégalo aquí abajo.</li></ol>`:''}
+    ${!url && !general ? `<ol><li>Toca <b>Abrir Commas</b> y crea un link de pago por <b>${fmt(dueNow(d),1)}</b>.</li><li>Copia el link y pégalo aquí abajo.</li></ol>`:''}
     <div class="plrow"><input class="in plain" id="m-paylink" type="url" placeholder="Pega aquí el link de Commas (https://…)" value="${esc(url)}"><a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">Abrir Commas</a><button class="btn sm" data-act="copy-amt">Copiar monto</button></div>
     <small class="muted">El cliente recibe el botón <b>"Pay Now"</b> en el email y el link también en el PDF.</small>
   </div>`;
 }
 function payMessage(d){
   const cl = S.clients[d.clientId] || {}; const t = docTotals(d); const l = payLinks(d).find(x=>x.url);
-  return `Hi ${(cl.name||'').split(' ')[0]}, here is the link to pay invoice ${d.number} (${money(Math.max(0,t.balance))})${d.due?', due '+fdateEn(d.due):''}: ${l?l.url:''}\nThank you! – ${S.settings.ownerName}, ${S.settings.tradeName}`;
+  return `Hi ${(cl.name||'').split(' ')[0]}, here is the link to pay invoice ${d.number} (${money(dueNow(d))})${d.due?', due '+fdateEn(d.due):''}: ${l?l.url:''}\nThank you! – ${S.settings.ownerName}, ${S.settings.tradeName}`;
 }
 function compose({to='', subject='', body='', doc=null, threadId=''}){
   S.composeDoc = doc; S.composeThread = threadId; S.noLinkOk = false;
@@ -3361,7 +3387,7 @@ function vSettings(){
     <div class="fgrid">${f('Prefijo de factura','invPrefix')}${f('Siguiente número de factura','invNext','number')}${f('Prefijo de estimado','estPrefix')}${f('Siguiente número de estimado','estNext','number')}${f('Impuesto por defecto (%)','taxRate','number')}${f('Días para pagar','payDays','number')}${f('Ganancia a sumar en estimados (%)','markup','number','15','Se aplica al total cuando eliges "Sumar % al total" en un estimado.')}${f('Mínimo para 1099-NEC ($)','threshold1099','number','2000','Pagos a un subcontratista desde este monto aparecen marcados en Reportes. Confírmalo con tu contador.')}
     <label class="f full"><span>Notas por defecto en estimados</span><textarea class="in" data-set="estTerms" rows="3">${esc(st.estTerms)}</textarea></label>
     <label class="f full"><span>Contrato que firma el cliente al aceptar un estimado (en inglés)</span><textarea class="in" data-set="contractTerms" rows="10" placeholder="Escribe aquí los términos de tu contrato. Si lo dejas vacío, el cliente acepta el estimado sin contrato.">${esc(st.contractTerms||'')}</textarea>
-      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar el contrato base</button>`}</small></label>
+      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. Dentro del texto puedes usar <code>{payments}</code> (el total y el plan de pagos de ese estimado), <code>{total}</code>, <code>{property}</code>, <code>{client}</code> y <code>{estimate}</code>: Kuadra los reemplaza en cada estimado. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar el contrato base</button>`}</small></label>
     <label class="chk full" style="grid-column:1/-1"><input type="checkbox" data-act="toggle-set" data-key="flNotices" ${st.flNotices?'checked':''}> Agregar los avisos que exige Florida cuando el total pasa de $2,500 (ley de gravámenes y fondo de recuperación)</label>
     ${st.flNotices ? `<label class="f full"><span>Dirección y teléfono de la junta de licencias, que va al final del aviso del fondo de recuperación</span><input class="in" data-set="cilbContact" value="${esc(st.cilbContact||'')}"><small class="muted">Confirma estos datos en el sitio del DBPR de Florida antes de usarlos.${(st.license||'').trim()?'':' <b>Falta tu número de licencia</b> arriba, en los datos del negocio: la ley pide que aparezca en cada contrato y propuesta.'}</small></label>` : ''}
     <label class="f full"><span>Notas por defecto en facturas</span><textarea class="in" data-set="invTerms" rows="3">${esc(st.invTerms)}</textarea></label></div></section>
