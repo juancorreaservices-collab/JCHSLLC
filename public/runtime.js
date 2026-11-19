@@ -56,7 +56,7 @@
         <div class="msg" id="kmsg">${note}</div>
         <button class="go" type="submit">${title}</button>
       </form>
-      ${mode === 'in' ? '<button class="alt" data-m="up">Primera vez: crear mi cuenta</button><button class="alt" data-m="reset">Olvidé mi contraseña</button>' : mode === 'newpw' ? '' : '<button class="alt" data-m="in">Ya tengo cuenta: entrar</button>'}`);
+      ${mode === 'in' ? (cfg && cfg.hasOwner === false ? '<button class="alt" data-m="up">Primera vez: crear mi cuenta</button>' : '') + '<button class="alt" data-m="reset">Olvidé mi contraseña</button>' : mode === 'newpw' ? '' : '<button class="alt" data-m="in">Ya tengo cuenta: entrar</button>'}`);
     g.querySelectorAll('.alt').forEach(b => (b.onclick = () => loginScreen(b.dataset.m)));
     const msg = (t, bad) => { const m = $('#kmsg'); m.textContent = t; m.className = 'msg' + (bad ? ' bad' : ''); };
     $('#kform').onsubmit = async ev => {
@@ -319,7 +319,7 @@
       <h4>Usuarios con acceso</h4>
       ${(users || []).map(u => `<div class="row"><span>${escH(u.email)}</span>${u.email.toLowerCase() !== session.user.email.toLowerCase() ? `<button class="btn sm ghost" data-a="deluser" data-e="${escH(u.email)}">Quitar</button>` : ''}</div>`).join('')}
       <div class="row"><input class="in" id="knew" type="email" placeholder="email@ejemplo.com" style="flex:1"><button class="btn sm" data-a="adduser">Agregar</button></div>
-      <small>La persona que agregues crea su propia contraseña en "Primera vez: crear mi cuenta".</small>
+      <small>Por ahora las cuentas nuevas están bloqueadas: nadie más puede crear una cuenta.</small>
       <h4>Conexiones</h4>
       <div class="row"><span>Gmail: ${!f.gmail ? 'falta configurar Google en Vercel' : gmail?.connected ? 'conectado · ' + escH(gmail.email) : gmail?.code === 'needs_reauth' ? 'Google rechazó la contraseña de aplicación' : 'sin conectar'}</span>${f.gmail && f.gmailMode !== 'app_password' ? `<button class="btn sm" data-act="gmail-connect">${gmail?.connected ? 'Reconectar' : 'Conectar Gmail'}</button>` : ''}</div>
       <div class="row"><span>IA (Claude): ${f.ai ? 'activa' : 'falta la clave en Vercel'}</span></div>
