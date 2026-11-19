@@ -5,7 +5,8 @@
   ],
   "functions": {
     "api/ai.js": { "maxDuration": 300 },
-    "api/gmail.js": { "maxDuration": 60 }
+    "api/gmail.js": { "maxDuration": 60 },
+    "api/setup.js": { "maxDuration": 60, "includeFiles": "supabase/schema.sql" }
   },
   "headers": [
     { "source": "/(.*)", "headers": [

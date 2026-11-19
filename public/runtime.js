@@ -66,9 +66,10 @@
       try {
         if (mode === 'in') { const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error; }
         else if (mode === 'up') {
-          const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin } });
-          if (error) throw error;
-          if (!data.session) { msg('Te enviamos un correo para confirmar tu cuenta. Ábrelo, toca el enlace y vuelve aquí para entrar.'); btn.disabled = false; return; }
+          const r = await fetch('/api/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(j.message || 'No se pudo crear la cuenta.');
+          const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error;
         } else if (mode === 'reset') {
           const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
           if (error) throw error; msg('Si ese email tiene cuenta, te llegó un enlace para cambiar la contraseña.'); btn.disabled = false; return;
@@ -91,7 +92,7 @@
   let entered = false;
   async function enter() {
     const { data } = await sb.auth.getSession(); session = data.session;
-    if (!session) return loginScreen('in');
+    if (!session) return loginScreen(cfg.hasOwner === false ? 'up' : 'in', cfg.hasOwner === false ? 'Bienvenido. Crea tu cuenta de dueño: escribe tu email y una contraseña de 8 letras o más.' : '');
     setCookie(session.access_token);
     const { data: ok, error } = await sb.rpc('claim_owner');
     if (error) return gate(`<div class="msg bad">La base de datos todavía no está lista (${error.message}). Falta correr el archivo supabase/schema.sql en Supabase.</div><button class="alt" id="kout">Cerrar sesión</button>`).querySelector('#kout').addEventListener('click', signOut);
@@ -354,6 +355,13 @@
     try { cfg = await fetch('/api/config', { cache: 'no-store' }).then(r => r.json()); } catch (_) { cfg = null; }
     if (!cfg?.supabaseUrl || !cfg?.supabaseAnonKey || !window.supabase) {
       return gate('<div class="msg bad">Kuadra todavía no está conectada a su base de datos. Faltan SUPABASE_URL y SUPABASE_ANON_KEY en Vercel → Settings → Environment Variables.</div>');
+    }
+    if (!cfg.schema) {
+      gate('<div class="msg">Preparando Kuadra por primera vez…</div>');
+      const r = await fetch('/api/setup', { method: 'POST' }).then(async x => ({ ok: x.ok, j: await x.json().catch(() => ({})) })).catch(() => ({ ok: false, j: {} }));
+      if (!r.ok) return gate(`<div class="msg bad">No se pudo preparar la base de datos${r.j.message ? ': ' + r.j.message : '.'}</div>`);
+      cfg = await fetch('/api/config', { cache: 'no-store' }).then(x => x.json());
+      if (cfg.hasOwner == null) cfg.hasOwner = false;
     }
     sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     const recovering = /type=recovery/.test(location.hash);

@@ -11,6 +11,7 @@ One page (`public/index.html`) plus a few serverless functions, deployed on Verc
 | `api/gmail.js`, `api/google.js` | Sends and reads email through the owner's Gmail (Google OAuth) |
 | `api/commas.js` | Creates a payment link per invoice and checks whether it was paid (Commas) |
 | `api/blob.js` | Serves private files (receipts, photos) through short-lived signed links |
+| `api/setup.js`, `api/signup.js` | First-run setup: create the tables and the accounts |
 | `supabase/schema.sql` | Database tables, access rules and the private file bucket |
 
 ## Environment variables (Vercel → Settings → Environment Variables)
@@ -28,6 +29,9 @@ The app works with only the three Supabase values; each of the others switches o
 
 ## First run
 
-1. Run `supabase/schema.sql` in Supabase → SQL Editor.
-2. Open the site and choose "Primera vez: crear mi cuenta". The first account becomes the owner;
-   after that only emails listed under Cuenta → Usuarios can get in.
+The site sets itself up. With the Supabase integration for Vercel connected (it provides
+`POSTGRES_URL` and the Supabase keys), the first visit creates the tables from
+`supabase/schema.sql` and shows "create the owner account". No confirmation email is needed.
+After that, only emails listed under Cuenta → Usuarios can create an account.
+
+Without `POSTGRES_URL`, run `supabase/schema.sql` once in Supabase → SQL Editor.
