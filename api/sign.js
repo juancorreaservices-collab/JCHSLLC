@@ -47,7 +47,30 @@ export default async function handler(req, res) {
   if (!est || est.shareToken !== token) return res.status(410).json({ code: 'gone', message: 'This estimate is no longer available. Please contact us.' });
 
   const now = signed.at;
-  const next = { ...est, status: 'Aceptado', acceptedAt: now, acceptedBy: name, sign: { name, at: now, ip, image }, signedSnapshot: { total: share.total, plan: share.plan, contract: share.contract },
+
+  // A signed estimate becomes a project right away, unless it already belongs to one.
+  let projectId = est.projectId || '';
+  if (!projectId) {
+    const { data: rows } = await sb.from('docs').select('id,data').eq('coll', 'projects');
+    const nums = (rows || []).map(r => Number(r.data?.num) || 0);
+    const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
+    const groups = (share.groups || []).filter(g => g && g.area);
+    const who = clean(share.client?.name, 60) || name;
+    projectId = 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const project = {
+      num: (nums.length ? Math.max(...nums) : 0) + 1,
+      name: clean(`${who} – ${share.summary || groups[0]?.area || 'Project'}`, 60),
+      type: clean(groups.map(g => g.area).join(', '), 80), clientId: est.clientId || '', owner: who, location: clean(share.property, 120),
+      month, order: Date.now(), start: '', end: '', status: 'No comenzado', price: Number(share.totalNumber) || 0, down: '', downDate: '',
+      payments: [], purchases: [], subs: [], profitNote: '',
+      tasks: groups.map(g => ({ text: clean(g.area, 80), status: 'Pendiente', notes: clean((g.items || []).map(i => i.desc).join('; '), 300) })),
+      notes: `Creado al firmarse el estimado ${share.number} (${name}, ${now.slice(0, 10)}).`, fromEstimate: share.estimateId, createdAt: now, updatedAt: now,
+    };
+    const ins = await sb.from('docs').insert({ coll: 'projects', id: projectId, data: project, updated_at: now });
+    if (ins.error) projectId = '';   // the signature still counts; the owner can create the project by hand
+  }
+
+  const next = { ...est, ...(projectId ? { projectId } : {}), status: 'Aceptado', acceptedAt: now, acceptedBy: name, sign: { name, at: now, ip, image }, signedSnapshot: { total: share.total, plan: share.plan, contract: share.contract },
     replies: [...(est.replies || []), { id: 'sign-' + token.slice(0, 12), threadId: '', type: 'accepted', at: now, from: name, email: '', subject: '', snippet: 'Reviewed and signed online.', unread: '1' }], updatedAt: now };
   const a = await sb.from('docs').update({ data: next, updated_at: now }).eq('coll', 'estimates').eq('id', share.estimateId);
   if (a.error) return res.status(500).json({ code: 'failed', message: 'Could not save the signature. Please try again.' });
