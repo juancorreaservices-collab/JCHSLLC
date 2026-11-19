@@ -967,6 +967,14 @@ const PLAN_PRESETS = {
   'thirds': [['First payment','Upon acceptance','%',33.33],['Second payment','At the midpoint of the work','%',33.33],['Final payment','Upon completion','rest','']],
   'custom': [['Deposit','Upon acceptance','%',''],['Final payment','Upon completion','rest','']],
 };
+const PLAN_LABELS = ['Deposit','Down payment','First payment','Second payment','Third payment','Fourth payment','Progress payment','Materials payment','Final payment'];
+const PLAN_WHEN = ['Upon acceptance','Before work starts','On the first day of work','When materials are ordered','When materials are delivered','After demolition','At the midpoint of the work','After rough-in','After installation','Upon completion','At final walkthrough'];
+// A dropdown for a plan field; a value that is not on the list stays selectable, and "Otro" opens a text box.
+function planPick(i, k, val, opts, ph, free){
+  if (free) return `<input class="in plain" data-list="plan" data-i="${i}" data-k="${k}" placeholder="${ph}" value="${esc(val||'')}">`;
+  const all = val && !opts.includes(val) ? [val, ...opts] : opts;
+  return `<select class="in plain" data-list="plan" data-i="${i}" data-k="${k}"><option value="" ${val?'':'selected'}>${ph}</option>${all.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}<option value="__other">Otro (escribir)…</option></select>`;
+}
 function planRows(d){
   const total = docTotals(d).total; let used = 0;
   const rows = (d.plan||[]).map((r,i) => { let a = r.kind==='$' ? N(r.value) : r.kind==='rest' ? 0 : total*N(r.value)/100; a = Math.round(a*100)/100; if (r.kind!=='rest') used += a; return {...r, i, amount:a}; });
@@ -1691,6 +1699,7 @@ function onEditChange(e){
   const dc = ctxColl();
   if (el.tagName==='SELECT' || el.type==='date'){ if (el.dataset.list!=null){ const r=(o[el.dataset.list]||[])[+el.dataset.i]; if (r) r[el.dataset.k]=el.value; } else o[el.dataset.k]=el.value; }
   if (el.dataset.list==='plan' && el.dataset.k==='kind'){ persist(dc, o); return renderDrawer(); }
+  if (el.dataset.list==='plan' && el.tagName==='SELECT' && el.value==='__other'){ const r = o.plan[+el.dataset.i]; r[el.dataset.k] = ''; r[el.dataset.k+'Free'] = '1'; persist(dc, o); return renderDrawer(`[data-list="plan"][data-i="${el.dataset.i}"][data-k="${el.dataset.k}"]`); }
   if ((dc==='estimates'||dc==='invoices') && el.dataset.list==null){
     if (el.dataset.k==='clientId'){
       if (el.value==='__new'){ o.clientId=''; persist(dc,o,true); renderDrawer(); quickClientModal(dc, o.id); return; }
@@ -1808,7 +1817,7 @@ async function act(name, el){
     case 'copy-share': { const e = cur(); try { const u = await ensureShare(e); await navigator.clipboard.writeText(u); toast('Link copiado'); } catch(_){ toast('No se pudo copiar el link'); } return; }
     case 'contract-sample': S.settings.contractTerms = CONTRACT_SAMPLE; saveSettings(); renderView(); toast('Texto base agregado. Léelo y ajústalo a tu negocio.'); return;
     case 'plan-preset': o.plan = PLAN_PRESETS[el.dataset.v].map(([label,when,kind,value])=>({label,when,kind,value})); o.showDep = ''; o.deposit = ''; persist(coll,o); return renderDrawer(el.dataset.v==='custom'?'[data-list="plan"][data-i="0"][data-k="value"]':undefined);
-    case 'plan-add': { const pl = o.plan ||= []; const at = pl.findIndex(r=>r.kind==='rest'); const row = {label:'Progress payment', when:'', kind:'%', value:''}; if (at>=0) pl.splice(at,0,row); else pl.push(row); persist(coll,o); return renderDrawer(`[data-list="plan"][data-i="${at>=0?at:pl.length-1}"][data-k="label"]`); }
+    case 'plan-add': { const pl = o.plan ||= []; const at = pl.findIndex(r=>r.kind==='rest'); const row = {label:'', when:'', kind:'%', value:''}; if (at>=0) pl.splice(at,0,row); else pl.push(row); persist(coll,o); return renderDrawer(`[data-list="plan"][data-i="${at>=0?at:pl.length-1}"][data-k="label"]`); }
     case 'plan-clear': o.plan = []; persist(coll,o); return renderDrawer();
     case 'contract-toggle': o.noContract = el.checked ? '' : '1'; persist(coll,o); return;
     case 'plan-invoice': { const e = cur(); const pr = planRows(e); const r = pr.rows[+el.dataset.i]; if (!e || !r) return; if (!e.clientId){ toast('Elige un cliente primero'); return; }
@@ -2411,7 +2420,7 @@ function docEdit(d, coll, isInv){
         <div class="dp-plan-h"><div class="lbl">Plan de pagos</div>${has?`<button class="linkbtn muted-l" data-act="plan-clear">Quitar plan</button>`:''}</div>
         ${has ? `<div class="plan-rows">
             <div class="plan-row hd"><span>Pago</span><span>Cuándo</span><span class="r">Valor</span><span></span><span class="r">Monto</span><span></span></div>
-            ${d.plan.map((r,i)=>`<div class="plan-row"><input class="in plain" data-list="plan" data-i="${i}" data-k="label" placeholder="Ej. Deposit" value="${esc(r.label||'')}"><input class="in plain" data-list="plan" data-i="${i}" data-k="when" placeholder="Ej. Upon acceptance" value="${esc(r.when||'')}"><input class="in plain n" data-list="plan" data-i="${i}" data-k="value" inputmode="decimal" placeholder="${r.kind==='rest'?'—':'0'}" value="${r.kind==='rest'?'':esc(r.value??'')}" ${r.kind==='rest'?'disabled':''}><select class="in plain" data-list="plan" data-i="${i}" data-k="kind"><option value="%" ${r.kind==='%'?'selected':''}>%</option><option value="$" ${r.kind==='$'?'selected':''}>$</option><option value="rest" ${r.kind==='rest'?'selected':''}>Resto</option></select><b class="num r" data-plan-amt="${i}">${fmt(pr.rows[i].amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="plan" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}
+            ${d.plan.map((r,i)=>`<div class="plan-row">${planPick(i,'label',r.label,PLAN_LABELS,'Elegir pago',r.labelFree)}${planPick(i,'when',r.when,PLAN_WHEN,'Elegir cuándo',r.whenFree)}<input class="in plain n" data-list="plan" data-i="${i}" data-k="value" inputmode="decimal" placeholder="${r.kind==='rest'?'—':'0'}" value="${r.kind==='rest'?'':esc(r.value??'')}" ${r.kind==='rest'?'disabled':''}><select class="in plain" data-list="plan" data-i="${i}" data-k="kind"><option value="%" ${r.kind==='%'?'selected':''}>%</option><option value="$" ${r.kind==='$'?'selected':''}>$</option><option value="rest" ${r.kind==='rest'?'selected':''}>Resto</option></select><b class="num r" data-plan-amt="${i}">${fmt(pr.rows[i].amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="plan" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}
           </div>
           <div class="plan-foot"><button class="linkbtn" data-act="plan-add">${I.plus} Agregar pago</button><span class="plan-status ${Math.abs(pr.diff)<0.01?'ok':'warn'}" data-plan-status>${planStatus(pr)}</span></div>`
         : `<div class="plan-presets"><span class="muted">Elige cómo se reparten los pagos:</span><button class="chip" data-act="plan-preset" data-v="50-50">50% / 50%</button><button class="chip" data-act="plan-preset" data-v="30-40-30">30% / 40% / 30%</button><button class="chip" data-act="plan-preset" data-v="thirds">3 pagos iguales</button><button class="chip" data-act="plan-preset" data-v="custom">Personalizado</button></div>`}
