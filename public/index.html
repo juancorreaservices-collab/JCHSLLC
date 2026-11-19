@@ -2619,6 +2619,56 @@ function emailHTML(d, coll){
     </td></tr></table></div>`;
 }
 
+/* The email the client receives: letterhead, one short message, one card with the
+   amount and a single main button, signature. Tables and inline styles only (Gmail). */
+function mailLayout(d, coll, text){
+  const isInv = coll==='invoices'; const st = S.settings; const t = docTotals(d); const cl = S.clients[d.clientId] || {};
+  const F = 'font-family:Arial,Helvetica,sans-serif;'; const INK = '#0B1B33', MUTE = '#8492A8', SOFT = '#44536B', LINE = '#E3E9F1';
+  const cut = text.lastIndexOf('\n\nThank you');
+  const intro = cut > 0 ? text.slice(0, cut) : text; const sign = cut > 0 ? text.slice(cut+2) : '';
+  const para = x => `<div style="${F}font-size:15px;line-height:1.6;color:${INK};white-space:pre-wrap">${esc(x)}</div>`;
+  const label = x => `<div style="${F}font-size:11px;letter-spacing:1.6px;color:${MUTE};text-transform:uppercase">${x}</div>`;
+  const row = (a,b) => `<tr><td style="${F}padding:8px 0;color:${SOFT};font-size:13px;border-top:1px solid ${LINE}">${a}</td><td align="right" style="${F}padding:8px 0;font-size:13px;font-weight:bold;color:${INK};border-top:1px solid ${LINE}">${b}</td></tr>`;
+  const button = (href, txt) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px"><tr><td align="center" bgcolor="${INK}" style="background-color:${INK};border-radius:8px"><a href="${esc(href)}" target="_blank" style="${F}display:block;padding:15px 20px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px">${txt}</a></td></tr></table>`;
+  const where = d.property || jobAddr(cl) || '';
+  const items = (d.items||[]).filter(r=>(r.desc||'').trim());
+  const areas = [...new Set(items.map(r=>(r.area||'').trim()).filter(Boolean))];
+  let card = '';
+  if (isInv){
+    const links = t.balance>0.004 ? payLinks(d) : []; const main = links.find(l=>l.url); const others = links.filter(l=>l.text).map(l=>l.text);
+    const work = (d.summary||'').trim() || areas.slice(0,3).join(', ') || (items[0]?.desc||'').slice(0,60);
+    card = t.balance>0.004
+      ? `${label('Amount due')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.balance)}</div>
+         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Invoice', esc(d.number))}${d.due?row('Due date', fdateEn(d.due)):''}${work?row('Work', esc(work)):''}${t.paid>0?row('Paid so far', money(t.paid)):''}</table>
+         ${main ? button(main.url, 'Pay Now') + `<div style="${F}font-size:12px;color:${MUTE};margin-top:12px;text-align:center">Secure online payment. If the button does not work, open this link:<br><a href="${esc(main.url)}" style="color:${SOFT}">${esc(main.url)}</a></div>` : ''}
+         ${others.length ? `<div style="${F}font-size:13px;color:${SOFT};margin-top:14px;padding-top:12px;border-top:1px solid ${LINE}">${main?'Other ways to pay: ':''}${others.map(esc).join(' &nbsp;·&nbsp; ')}</div>` : ''}`
+      : `${label('Invoice '+esc(d.number))}<div style="${F}font-size:26px;font-weight:bold;color:#1e7a4c;margin:4px 0 4px">Paid in full</div><div style="${F}font-size:13px;color:${SOFT}">Total ${money(t.total)}. Thank you!</div>`;
+  } else {
+    const to = st.email || ''; const hi = `Hi ${(st.ownerName||'').split(' ')[0]},\n\n`; const forW = where ? ' for '+where : '';
+    const mk = (subj, body) => `mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+    const acc = mk(`Accepted - Estimate ${d.number} - ${st.tradeName}`, `${hi}I accept estimate ${d.number}${forW} (total ${money(t.total)}). Please let me know the next steps.\n\nThank you,\n${cl.contactFirst||cl.name||''}`);
+    const q = mk(`Question - Estimate ${d.number} - ${st.tradeName}`, `${hi}I have a question about estimate ${d.number}${forW}:\n\n`);
+    const ch = mk(`Changes requested - Estimate ${d.number} - ${st.tradeName}`, `${hi}I would like the following changes to estimate ${d.number}${forW}:\n\n`);
+    const scope = areas.length ? areas.slice(0,8) : items.slice(0,5).map(r=>r.desc.trim().slice(0,70));
+    const more = (areas.length ? areas.length : items.length) - scope.length;
+    card = `${label('Estimate total')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.total)}</div>
+      ${scope.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px">${label('Scope of work')}<div style="${F}font-size:14px;line-height:1.9;color:${INK};margin-top:6px">${scope.map(esc).join('<br>')}${more>0?`<br><span style="color:${MUTE}">and ${more} more, see the attached PDF</span>`:''}</div></div>` : ''}
+      ${button(acc, 'Accept Estimate')}
+      <div style="${F}font-size:14px;margin-top:14px;text-align:center"><a href="${esc(q)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Ask a question</a> &nbsp;·&nbsp; <a href="${esc(ch)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Request changes</a></div>`;
+  }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F7FB" style="background-color:#F4F7FB"><tr><td align="center" style="padding:24px 12px">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid ${LINE};border-top:4px solid ${INK};border-radius:10px">
+      <tr><td style="padding:28px 32px 18px">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td valign="top"><img src="cid:att0" alt="${esc(st.tradeName)}" width="130" style="display:block;width:130px;height:auto;border:0"></td>
+          <td valign="top" align="right"><div style="${F}font-size:22px;letter-spacing:6px;color:${INK}">${isInv?'INVOICE':'ESTIMATE'}</div><div style="${F}font-size:12px;color:${MUTE};letter-spacing:1.5px;margin-top:6px">${esc(d.number||'')}</div></td>
+        </tr></table></td></tr>
+      <tr><td style="padding:4px 32px 0">${para(intro)}</td></tr>
+      <tr><td style="padding:20px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:10px"><tr><td style="padding:22px">${card}</td></tr></table></td></tr>
+      <tr><td style="padding:22px 32px 26px">${sign ? para(sign) : ''}</td></tr>
+      <tr><td bgcolor="#F5F8FC" style="background-color:#F5F8FC;border-top:1px solid ${LINE};padding:14px 32px;${F}font-size:12px;color:${MUTE};border-radius:0 0 10px 10px">The full ${isInv?'invoice':'estimate'} is attached as a PDF.</td></tr>
+    </table></td></tr></table>`;
+}
 function estRespondHTML(d){
   const st = S.settings; const t = docTotals(d); const cl = S.clients[d.clientId] || {};
   const where = d.property || jobAddr(cl) || cl.name || '';
@@ -2759,9 +2809,10 @@ function composeDoc(d, coll, linked){
   const where = d.property || jobAddr(cl) || cl.name;
   const subj = isInv ? `Invoice ${d.number} - ${where} - ${st.tradeName}` : `Estimate - ${where} - ${st.tradeName}`;
   const sig = `\n\nThank you,\n${st.ownerName}\n${st.tradeName}\n${st.phone}\n${st.email}`;
+  const at = where && where!==cl.name ? ` for the work at ${where}` : '';
   const msg = isInv
-    ? (t.balance>0.004 ? `Hi ${first},\n\nPlease find attached invoice ${d.number} for ${money(t.balance)}${d.due?', due '+fdateEn(d.due):''}. You can pay online using the payment link below.${sig}` : `Hi ${first},\n\nPlease find attached invoice ${d.number}. It has been paid in full. Thank you for your business!${sig}`)
-    : `Hi ${first},\n\nPlease find attached the estimate for ${where}. You can accept it, ask me a question or request changes using the buttons below.${sig}`;
+    ? (t.balance>0.004 ? `Hi ${first},\n\nHere is your invoice${at}.${sig}` : `Hi ${first},\n\nHere is your invoice${at}. It has been paid in full. Thank you for your business!${sig}`)
+    : `Hi ${first},\n\nHere is your estimate${at}.${sig}`;
   compose({to: cl.email||'', subject: subj, body: msg, doc:{id:d.id, coll}});
 }
 function payLinkBox(d){
@@ -2779,7 +2830,7 @@ function payMessage(d){
 }
 function compose({to='', subject='', body='', doc=null, threadId=''}){
   S.composeDoc = doc; S.composeThread = threadId; S.noLinkOk = false;
-  const docInfo = doc ? `<div class="note">Se adjunta el PDF ${doc.coll==='invoices'?'de la factura, y el email lleva los botones de pago':'del estimado, y el email lleva botones para que el cliente lo acepte, haga preguntas o pida cambios'} con tu logo. Se envía desde tu Gmail.</div>` : '';
+  const docInfo = doc ? `<div class="note">Se adjunta el PDF ${doc.coll==='invoices'?'de la factura, y el email lleva el monto y el botón Pay Now':'del estimado, y el email lleva el total y el botón Accept Estimate'} con tu logo. Se envía desde tu Gmail.</div>` : '';
   const noMail = !S.mcp ? `<div class="note warn">${window.claude?.standalone ? 'El email todavía no está configurado en esta Kuadra.' : 'El email solo funciona cuando abres esta app dentro de claude.ai con Gmail conectado.'}</div>` : '';
   openModal(threadId?'Responder':'Nuevo email', `${noMail}
     <label class="f"><span>Para</span><input class="in plain" id="m-to" type="email" value="${esc(to)}" placeholder="cliente@email.com" list="m-clients"></label>
@@ -2810,19 +2861,10 @@ async function sendMail(btn){
   if (doc){
     if (!window.jspdf){ msgEl.innerHTML='<div class="note bad">El generador de PDF no cargó. Revisa tu conexión y vuelve a intentar.</div>'; return; }
     const pdf = makePDF(doc, S.composeDoc.coll);
-    const logoHead = `<div style="margin:0 0 16px 0"><img src="cid:att0" alt="JC Home Services" width="140" style="display:block;width:140px;height:auto;border:0"></div>`;
-    if (S.composeDoc.coll==='invoices'){
-      // payment box goes right after the message and before the signature
-      const cut = text.lastIndexOf('\n\nThank you'); const wrap = t => `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#15171a;white-space:pre-wrap">${esc(t)}</div>`;
-      input.htmlBody = cut > 0 ? wrap(text.slice(0, cut)) + emailHTML(doc, 'invoices') + wrap(text.slice(cut+2)) : htmlText + emailHTML(doc, 'invoices');
-      const l = payLinks(doc).find(x=>x.url); if (l && docTotals(doc).balance>0.004) input.body = text + `\n\nPay online (${money(docTotals(doc).balance)}): ${l.url}`;
-    }
-    if (S.composeDoc.coll==='estimates'){
-      const cut = text.lastIndexOf('\n\nThank you'); const wrap = t => `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#15171a;white-space:pre-wrap">${esc(t)}</div>`;
-      input.htmlBody = cut > 0 ? wrap(text.slice(0, cut)) + estRespondHTML(doc) + wrap(text.slice(cut+2)) : htmlText + estRespondHTML(doc);
-      input.body = text + `\n\nTo accept this estimate, ask a question or request changes, just reply to this email.`;
-    }
-    input.htmlBody = logoHead + input.htmlBody;
+    const isInvMail = S.composeDoc.coll==='invoices';
+    input.htmlBody = mailLayout(doc, S.composeDoc.coll, text);
+    if (isInvMail){ const l = payLinks(doc).find(x=>x.url); if (l && docTotals(doc).balance>0.004) input.body = text + `\n\nPay online (${money(docTotals(doc).balance)}): ${l.url}`; }
+    else input.body = text + `\n\nTo accept this estimate, ask a question or request changes, just reply to this email.`;
     input.attachments = [{content: LOGO_PDF, filename:'jc-home-services-logo.jpg', mimeType:'image/jpeg', inline:true}, {content: pdf.base64, filename: pdf.name, mimeType:'application/pdf'}];
   }
   if (S.composeThread && mode==='send') input.replyThreadId = S.composeThread;
