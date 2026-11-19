@@ -92,7 +92,7 @@
       el('div', { class: 'ttl' }, el('h1', { text: 'ESTIMATE' }), el('div', { text: S.number }), S.date ? el('div', { text: dayEn(S.date) }) : null));
     const who = el('div', { class: 'pad sec two' },
       el('div', {}, el('div', { class: 'lbl', text: 'Prepared for' }), el('b', { text: S.client.name || '' }), S.client.address ? el('span', { text: S.client.address }) : null),
-      el('div', {}, el('div', { class: 'lbl', text: 'Property' }), el('b', { text: S.property || '—' }), S.summary ? el('span', { text: S.summary }) : null, S.completion ? el('span', { style: 'margin-top:10px', text: 'Estimated completion: ' + dayEn(S.completion) }) : null));
+      el('div', {}, el('div', { class: 'lbl', text: 'Property' }), el('b', { text: S.property || '—' }), S.summary ? el('span', { text: S.summary }) : null, S.startDate ? el('span', { style: 'margin-top:10px', text: 'Estimated start: ' + dayEn(S.startDate) }) : null, S.completion ? el('span', { style: S.startDate ? '' : 'margin-top:10px', text: 'Estimated completion: ' + dayEn(S.completion) }) : null));
 
     const scope = el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Scope of work' }));
     if (hasCols) {

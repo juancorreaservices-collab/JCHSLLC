@@ -691,7 +691,7 @@ button.lrow:hover{background:var(--surface-2)}
 .dp-plan-h{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .plan-presets{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
 .plan-rows{display:flex;flex-direction:column}
-.plan-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 84px 92px 120px 32px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.plan-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) 150px 76px 86px 112px 32px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .plan-row.hd{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding-bottom:8px}
 .plan-row .r{text-align:right}
 .plan-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -710,7 +710,7 @@ button.lrow:hover{background:var(--surface-2)}
 .cal-legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
 .cal-legend span{display:inline-flex;align-items:center;gap:6px}
 .cal-legend i,.cdot,.cdots i{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
-.proj{--c:#1F5EFF}.inv{--c:#1e7a4c}.bad{--c:#b4372f}.est{--c:#9a6200}.own{--c:#6b3fd4}
+.proj{--c:#1F5EFF}.inv{--c:#1e7a4c}.bad{--c:#b4372f}.est{--c:#9a6200}.own{--c:#6b3fd4}.pay{--c:#C2410C}
 .cal-legend i,.cdot,.cdots i{background:var(--c)}
 .cal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
 .cal-dow span{padding:8px 10px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
@@ -760,8 +760,9 @@ button.lrow:hover{background:var(--surface-2)}
   .plan-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:12px 0}
   .plan-row.hd{display:none}
   .plan-row > :nth-child(1),.plan-row > :nth-child(2){grid-column:1/-1}
-  .plan-row > :nth-child(5){grid-column:1;text-align:left}
-  .plan-row > :nth-child(6){grid-column:2;justify-self:end}
+  .plan-row > :nth-child(3){grid-column:1/-1}
+  .plan-row > :nth-child(6){grid-column:1;text-align:left}
+  .plan-row > :nth-child(7){grid-column:2;justify-self:end}
 }
 /* icons inside text never grow past text size */
 :where(.note,.hidnote,.banner,.toast,.pill,small,p,label,.muted) > svg{width:16px;height:16px;flex:none;vertical-align:-3px;display:inline-block}
@@ -1029,9 +1030,11 @@ function planPick(i, k, val, opts, ph, free){
   const all = val && !opts.includes(val) ? [val, ...opts] : opts;
   return `<select class="in plain" data-list="plan" data-i="${i}" data-k="${k}"><option value="" ${val?'':'selected'}>${ph}</option>${all.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}<option value="__other">Otro (escribir)…</option></select>`;
 }
+// What the client reads for "when": the chosen moment plus the date, if one was set.
+const planWhen = r => [r.when, /^\d{4}-\d{2}-\d{2}$/.test(r.date||'') ? fdateEn(r.date) : ''].filter(Boolean).join(' · ');
 function planRows(d){
   const total = docTotals(d).total; let used = 0;
-  const rows = (d.plan||[]).map((r,i) => { let a = r.kind==='$' ? N(r.value) : r.kind==='rest' ? 0 : total*N(r.value)/100; a = Math.round(a*100)/100; if (r.kind!=='rest') used += a; return {...r, i, amount:a}; });
+  const rows = (d.plan||[]).map((r,i) => { let a = r.kind==='$' ? N(r.value) : r.kind==='rest' ? 0 : total*N(r.value)/100; a = Math.round(a*100)/100; if (r.kind!=='rest') used += a; return {...r, i, amount:a, whenText: planWhen(r)}; });
   rows.forEach(r => { if (r.kind==='rest') r.amount = Math.max(0, Math.round((total-used)*100)/100); });
   const sum = Math.round(rows.reduce((a,r)=>a+r.amount,0)*100)/100;
   return { rows, sum, total, diff: Math.round((total-sum)*100)/100 };
@@ -1060,7 +1063,7 @@ function paymentsClause(d){
   const t = docTotals(d); const pr = planRows(d);
   if (!pr.rows.length) return `Client agrees to pay the total of ${money(t.total)}.`;
   const low = x => x ? x.charAt(0).toLowerCase() + x.slice(1) : '';
-  return `Client agrees to pay the total of ${money(t.total)} as follows: ` + pr.rows.map((r,i)=>`(${i+1}) ${r.label||'Payment '+(i+1)}, ${money(r.amount)}${r.kind==='%'?` (${N(r.value)}%)`:''}${r.when?', '+low(r.when):''}`).join('; ') + '.';
+  return `Client agrees to pay the total of ${money(t.total)} as follows: ` + pr.rows.map((r,i)=>`(${i+1}) ${r.label||'Payment '+(i+1)}, ${money(r.amount)}${r.kind==='%'?` (${N(r.value)}%)`:''}${r.when?', '+low(r.when):''}${/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?' ('+fdateEn(r.date)+')':''}`).join('; ') + '.';
 }
 // The agreement text with its blanks filled in: {payments} {total} {property} {client} {estimate}
 function contractText(d){
@@ -1075,7 +1078,7 @@ function contractText(d){
 function planDue(d){
   const t = docTotals(d); const pr = planRows(d); const bal = Math.max(0, Math.round(t.balance*100)/100);
   let cum = 0, next = null;
-  const rows = pr.rows.map(r => { const before = cum; cum += r.amount; const got = Math.max(0, Math.min(r.amount, t.paid - before)); const left = Math.round((r.amount-got)*100)/100; const row = {...r, got, left, st: left < 0.005 ? 'paid' : got > 0.004 ? 'partial' : 'due'}; if (!next && left >= 0.005) next = row; return row; });
+  const rows = pr.rows.map(r => { const before = cum; cum += r.amount; const got = Math.max(0, Math.min(r.amount, t.paid - before)); const left = Math.round((r.amount-got)*100)/100; const row = {...r, got, left, whenText: planWhen(r), st: left < 0.005 ? 'paid' : got > 0.004 ? 'partial' : 'due'}; if (!next && left >= 0.005) next = row; return row; });
   return { rows, next, balance: bal, dueNow: Math.round((next ? Math.min(next.left, bal) : bal)*100)/100 };
 }
 const dueNow = d => planDue(d).dueNow;
@@ -1716,7 +1719,7 @@ function convertEstimate(e, quiet){
   const items = (e.items||[]).filter(r=>(r.desc||'').trim()||N(r.rate)).map(r=>({area:r.area||'', desc:r.desc||'', qty:r.qty||1, rate: Math.round(N(r.rate)*f*100)/100}));
   const diff = Math.round((t.base*f - items.reduce((a,r)=>a+N(r.qty||1)*N(r.rate),0))*100)/100;
   if (diff && items.length){ const last = items[items.length-1]; last.rate = Math.round((N(last.rate) + diff/N(last.qty||1))*100)/100; }
-  return newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:e.summary||'', items, taxRate:e.taxRate, showTax:e.showTax||'', fromEstimate:e.id, plan:(e.plan||[]).map(({label,when,kind,value})=>({label,when,kind,value})), showDisc:e.showDisc||'', discType:e.discType||'$', discLabel:e.discLabel||'', discount: e.showDisc ? (e.discType==='%' ? e.discount : Math.round(N(e.discount)*f*100)/100) : '', showPrices:'', hideQty:docCols(e,'estimates').qty?'':'1', hidePrice:docCols(e,'estimates').price?'':'1', hideAmount:docCols(e,'estimates').amount?'':'1', notes:S.settings.invTerms}, true, quiet).then(inv => {
+  return newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:e.summary||'', items, taxRate:e.taxRate, showTax:e.showTax||'', fromEstimate:e.id, plan:(e.plan||[]).map(({label,when,kind,value,date})=>({label,when,kind,value,date:date||''})), showDisc:e.showDisc||'', discType:e.discType||'$', discLabel:e.discLabel||'', discount: e.showDisc ? (e.discType==='%' ? e.discount : Math.round(N(e.discount)*f*100)/100) : '', showPrices:'', hideQty:docCols(e,'estimates').qty?'':'1', hidePrice:docCols(e,'estimates').price?'':'1', hideAmount:docCols(e,'estimates').amount?'':'1', notes:S.settings.invTerms}, true, quiet).then(inv => {
     e.convertedTo = inv.id; e.status = 'Aceptado'; persist('estimates', e, true); if (!quiet) toast(`Factura ${inv.number} creada desde ${e.number}`); return inv;
   });
 }
@@ -2497,7 +2500,7 @@ function docEdit(d, coll, isInv){
           ${metaRow(isInv?'Número P.O./S.O.':'Referencia del cliente', mIn('po', d.po))}
           ${metaRow(isInv?'Fecha de factura':'Fecha', mIn('date', d.date, 'date'))}
           ${isInv ? metaRow('Fecha de pago', mIn('due', d.due, 'date') + `<select class="in plain sm" data-k="terms">${TERMS.map(([v,l])=>`<option value="${v}" ${v===terms?'selected':''}>${l}</option>`).join('')}</select>`)
-                  : metaRow('Válido hasta', mIn('validUntil', d.validUntil, 'date'), days!=null && days>=0 ? `Dentro de ${days} días` : 'Opcional') + metaRow('Terminación estimada', mIn('completion', d.completion, 'date'), d.completion ? '' : 'Opcional')}
+                  : metaRow('Válido hasta', mIn('validUntil', d.validUntil, 'date'), days!=null && days>=0 ? `Dentro de ${days} días` : 'Opcional') + metaRow('Inicio estimado', mIn('startDate', d.startDate, 'date'), d.startDate ? '' : 'Opcional') + metaRow('Terminación estimada', mIn('completion', d.completion, 'date'), d.completion ? '' : 'Opcional')}
         </div>
       </div>
 
@@ -2529,8 +2532,8 @@ function docEdit(d, coll, isInv){
       ${(() => { const pr = planRows(d); const has = (d.plan||[]).length; return `<div class="dp-plan">
         <div class="dp-plan-h"><div class="lbl">Plan de pagos</div>${has?`<button class="linkbtn muted-l" data-act="plan-clear">Quitar plan</button>`:''}</div>
         ${has ? `<div class="plan-rows">
-            <div class="plan-row hd"><span>Pago</span><span>Cuándo</span><span class="r">Valor</span><span></span><span class="r">Monto</span><span></span></div>
-            ${d.plan.map((r,i)=>`<div class="plan-row">${planPick(i,'label',r.label,PLAN_LABELS,'Elegir pago',r.labelFree)}${planPick(i,'when',r.when,PLAN_WHEN,'Elegir cuándo',r.whenFree)}<input class="in plain n" data-list="plan" data-i="${i}" data-k="value" inputmode="decimal" placeholder="${r.kind==='rest'?'—':'0'}" value="${r.kind==='rest'?'':esc(r.value??'')}" ${r.kind==='rest'?'disabled':''}><select class="in plain" data-list="plan" data-i="${i}" data-k="kind"><option value="%" ${r.kind==='%'?'selected':''}>%</option><option value="$" ${r.kind==='$'?'selected':''}>$</option><option value="rest" ${r.kind==='rest'?'selected':''}>Resto</option></select><b class="num r" data-plan-amt="${i}">${fmt(pr.rows[i].amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="plan" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}
+            <div class="plan-row hd"><span>Pago</span><span>Cuándo</span><span>Fecha (opcional)</span><span class="r">Valor</span><span></span><span class="r">Monto</span><span></span></div>
+            ${d.plan.map((r,i)=>`<div class="plan-row">${planPick(i,'label',r.label,PLAN_LABELS,'Elegir pago',r.labelFree)}${planPick(i,'when',r.when,PLAN_WHEN,'Elegir cuándo',r.whenFree)}<input class="in plain" type="date" data-list="plan" data-i="${i}" data-k="date" value="${esc(r.date||'')}" aria-label="Fecha de este pago"><input class="in plain n" data-list="plan" data-i="${i}" data-k="value" inputmode="decimal" placeholder="${r.kind==='rest'?'—':'0'}" value="${r.kind==='rest'?'':esc(r.value??'')}" ${r.kind==='rest'?'disabled':''}><select class="in plain" data-list="plan" data-i="${i}" data-k="kind"><option value="%" ${r.kind==='%'?'selected':''}>%</option><option value="$" ${r.kind==='$'?'selected':''}>$</option><option value="rest" ${r.kind==='rest'?'selected':''}>Resto</option></select><b class="num r" data-plan-amt="${i}">${fmt(pr.rows[i].amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="plan" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}
           </div>
           <div class="plan-foot"><button class="linkbtn" data-act="plan-add">${I.plus} Agregar pago</button><span class="plan-status ${Math.abs(pr.diff)<0.01?'ok':'warn'}" data-plan-status>${planStatus(pr)}</span></div>`
         : `<div class="plan-presets"><span class="muted">Elige cómo se reparten los pagos:</span><button class="chip" data-act="plan-preset" data-v="50-50">50% / 50%</button><button class="chip" data-act="plan-preset" data-v="30-40-30">30% / 40% / 30%</button><button class="chip" data-act="plan-preset" data-v="thirds">3 pagos iguales</button><button class="chip" data-act="plan-preset" data-v="custom">Personalizado</button></div>`}
@@ -2570,8 +2573,8 @@ function docView(d, coll, isInv){
     </section>
     ${conv?`<div class="note ok">Este estimado se convirtió en la factura <b>${esc(conv.number)}</b>.</div>`:''}
     ${!isInv && d.sign?.name ? `<section class="card signed"><div><span class="pill ok">Firmado</span></div>${d.sign.image?`<img src="${esc(d.sign.image)}" alt="Firma de ${esc(d.sign.name)}">`:''}<div class="signed-t"><b>${esc(d.sign.name)}</b><span class="muted">Firmó el ${fdate(d.sign.at)}${d.sign.ip?' · IP '+esc(d.sign.ip):''}</span></div>${d.projectId && S.projects[d.projectId]?`<button class="btn sm" style="margin-left:auto" data-open="projects:${d.projectId}">Ver proyecto ${esc(pnum(S.projects[d.projectId]))}</button>`:''}</section>` : ''}
-    ${!isInv && (d.plan||[]).length ? (() => { const pr = planRows(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${planStatus(pr)}</span></div>${pr.rows.map((r,i)=>{ const inv = r.invoiceId && S.invoices[r.invoiceId]; const st2 = inv && invStatus(inv); return `<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span>${inv?`<span class="pill ${st2[1]}">${st2[0]}</span>`:''}<b class="num">${fmt(r.amount,1)}</b>${inv?`<button class="btn sm" data-open="invoices:${inv.id}">Ver factura</button>`:''}</div>`; }).join('')}</section>`; })() : ''}
-    ${isInv && (d.plan||[]).length ? (() => { const pd = planDue(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${pd.balance>0.004?`Toca cobrar ahora: ${fmt(pd.dueNow,1)}`:'Todo pagado'}</span></div>${pd.rows.map((r,i)=>`<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span><span class="pill ${r.st==='paid'?'ok':r.st==='partial'?'warn':''}">${r.st==='paid'?'Pagado':r.st==='partial'?'Falta '+fmt(r.left,1):'Pendiente'}</span><b class="num">${fmt(r.amount,1)}</b></div>`).join('')}</section>`; })() : ''}
+    ${!isInv && (d.plan||[]).length ? (() => { const pr = planRows(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${planStatus(pr)}</span></div>${pr.rows.map((r,i)=>{ const inv = r.invoiceId && S.invoices[r.invoiceId]; const st2 = inv && invStatus(inv); return `<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.whenText||'')}</small></span>${inv?`<span class="pill ${st2[1]}">${st2[0]}</span>`:''}<b class="num">${fmt(r.amount,1)}</b>${inv?`<button class="btn sm" data-open="invoices:${inv.id}">Ver factura</button>`:''}</div>`; }).join('')}</section>`; })() : ''}
+    ${isInv && (d.plan||[]).length ? (() => { const pd = planDue(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${pd.balance>0.004?`Toca cobrar ahora: ${fmt(pd.dueNow,1)}`:'Todo pagado'}</span></div>${pd.rows.map((r,i)=>`<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.whenText||'')}</small></span><span class="pill ${r.st==='paid'?'ok':r.st==='partial'?'warn':''}">${r.st==='paid'?'Pagado':r.st==='partial'?'Falta '+fmt(r.left,1):'Pendiente'}</span><b class="num">${fmt(r.amount,1)}</b></div>`).join('')}</section>`; })() : ''}
     ${!isInv && d.shareToken && window.claude?.standalone ? `<div class="note">${I.link} Página para que el cliente revise y firme: <a href="/e/${esc(d.shareToken)}" target="_blank" rel="noopener">${esc(location.origin)}/e/${esc(d.shareToken)}</a> <button class="btn sm" data-act="copy-share">Copiar link</button></div>` : ''}
     ${!isInv ? repliesCard(d) : ''}
     ${(d.files||[]).length ? `<section class="card replies"><div class="sec-h"><h3>Documentos adjuntos</h3><span class="muted" style="font-size:12px">Solo para ti, no se envían al cliente</span></div><div class="aifiles">${d.files.map(f=>`<a class="fchip" href="/_blob/${esc(f.id)}" target="_blank" rel="noopener">${f.type==='application/pdf'?'PDF':'IMG'}<b>${esc(f.name)}</b></a>`).join('')}</div></section>` : ''}
@@ -2700,6 +2703,7 @@ function paperHTML(d, coll){
     <div><h2>${isInv?'INVOICE':'ESTIMATE'}</h2><div class="meta">${isInv?'Invoice # '+esc(d.number)+'<br>':''}${!isInv?'Estimate # '+esc(d.number)+'<br>':''}Date: ${fdateEn(d.date)}${isInv&&d.due?'<br>Due: '+fdateEn(d.due):''}${!isInv&&d.validUntil?'<br>Valid until: '+fdateEn(d.validUntil):''}${d.po?(isInv?'<br>P.O./S.O.: ':'<br>Reference: ')+esc(d.po):''}</div></div></div>
     <div class="two"><div><div class="lab">${isInv?'Bill to':'Prepared for'}</div><b>${esc(cl.name||'—')}</b>${cl.email?'<br>'+esc(cl.email):''}</div>
       ${d.property?`<div><div class="lab">Property</div>${esc(d.property)}</div>`:''}
+      ${!isInv && d.startDate?`<div><div class="lab">Estimated start</div>${fdateEn(d.startDate)}</div>`:''}
       ${!isInv && d.completion?`<div><div class="lab">Estimated completion</div>${fdateEn(d.completion)}</div>`:''}
       <div><div class="lab">Prepared by</div>${esc(st.ownerName)}<br>${esc(st.tradeName)}</div></div>
     ${d.summary?`<div style="font-weight:800;font-size:16px;margin:-4px 0 6px">${esc(d.summary)}</div>`:''}`;
@@ -2719,7 +2723,7 @@ function paperHTML(d, coll){
   }
   if (isInv && t.balance>0 && payLinks(d).length) body += `<div class="paybox"><div class="lab">How to pay</div><div>${payLinks(d).filter(l=>l.url).map(l=>`<a class="paybtn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.btn)}</a>`).join('')}</div>${payLinks(d).filter(l=>l.text).map(l=>`<div>${esc(l.text)}</div>`).join('')}</div>`;
   { const pd = planDue(d);
-    if (pd.rows.length) body += `<div style="margin-top:22px"><div class="lab">Payment schedule</div><table style="margin-top:6px"><tbody>${pd.rows.map((r,i)=>`<tr><td style="width:28px;color:#7b828c">${i+1}.</td><td><b>${esc(r.label||'Payment '+(i+1))}</b>${r.when?`<div style="color:#4a5059;font-size:13px">${esc(r.when)}</div>`:''}</td><td class="n" style="color:#4a5059">${r.kind==='%'?N(r.value)+'%':''}</td><td class="n"><b>${money(r.amount)}</b>${isInv&&r.st==='paid'?'<div style="color:#1e7a4c;font-size:12px">Paid</div>':''}</td></tr>`).join('')}</tbody></table></div>`; }
+    if (pd.rows.length) body += `<div style="margin-top:22px"><div class="lab">Payment schedule</div><table style="margin-top:6px"><tbody>${pd.rows.map((r,i)=>`<tr><td style="width:28px;color:#7b828c">${i+1}.</td><td><b>${esc(r.label||'Payment '+(i+1))}</b>${r.whenText?`<div style="color:#4a5059;font-size:13px">${esc(r.whenText)}</div>`:''}</td><td class="n" style="color:#4a5059">${r.kind==='%'?N(r.value)+'%':''}</td><td class="n"><b>${money(r.amount)}</b>${isInv&&r.st==='paid'?'<div style="color:#1e7a4c;font-size:12px">Paid</div>':''}</td></tr>`).join('')}</tbody></table></div>`; }
   if (!isInv){
     const ct = contractText(d);
     if (ct) body += `<div style="margin-top:22px"><div class="lab">Agreement</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-top:6px">${esc(ct)}</div></div>`;
@@ -2788,6 +2792,7 @@ function makePDF(d, coll){
     if (isInv){ row('Total', money(t.total)); if (t.paid) row('Paid', '-'+money(t.paid)); row('Balance due', money(t.balance), true); }
     else row('TOTAL', money(t.total), true);
   }
+  if (!isInv && d.startDate){ need(24); pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text('Estimated start:', M, y); pdf.setFont('helvetica','normal'); pdf.text(fdateEn(d.startDate), M+124, y); y += 16; }
   if (!isInv && d.completion){ need(24); pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text('Estimated completion:', M, y); pdf.setFont('helvetica','normal'); pdf.text(fdateEn(d.completion), M+124, y); y += 20; }
   if (!isInv && t.dep){ pdf.setFont('helvetica','normal'); pdf.setFontSize(11); pdf.text('Deposit required', W-M-220, y); pdf.text(money(t.dep), W-M, y, {align:'right'}); y += 20; }
   y += 10;
@@ -2802,7 +2807,7 @@ function makePDF(d, coll){
       need(34 + pr.rows.length*30); pdf.setFont('helvetica','bold'); pdf.setFontSize(11); pdf.text('Payment schedule', M, y); y += 18;
       pr.rows.forEach((r,i) => { pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text(`${i+1}. ${r.label||'Payment '+(i+1)}`, M, y); pdf.text(isInv && r.st==='paid' ? `${money(r.amount)}  Paid` : money(r.amount), W-M, y, {align:'right'});
         if (r.kind==='%'){ pdf.setFont('helvetica','normal'); pdf.text(`${N(r.value)}%`, W-M-110, y, {align:'right'}); }
-        if (r.when){ pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5); pdf.setTextColor(74,80,89); pdf.text(String(r.when), M+14, y+12); pdf.setTextColor(21,23,26); y += 12; }
+        if (r.whenText){ pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5); pdf.setTextColor(74,80,89); pdf.text(String(r.whenText), M+14, y+12); pdf.setTextColor(21,23,26); y += 12; }
         y += 18; });
       y += 8;
     } }
@@ -2863,11 +2868,11 @@ function shareSnapshot(d){
   if (cols.qty||cols.price||cols.amount||t.disc||N(d.taxRate)){ lines.push(['Subtotal', money(t.base*f)]); if (t.disc) lines.push(['Discount'+(d.discLabel?` (${d.discLabel})`:''), '-'+money(t.disc*f)]); if (N(d.taxRate)) lines.push([`Tax (${N(d.taxRate)}%)`, money(t.tax)]); }
   return { kind:'estimate', estimateId:d.id, number:d.number, date:d.date||'', validUntil:d.validUntil||'',
     business:{ tradeName:st.tradeName||'', legalName:st.legalName||'', ownerName:st.ownerName||'', phone:st.phone||'', email:st.email||'', address:st.address||'', license:st.license||'' },
-    completion: d.completion||'',
+    completion: d.completion||'', startDate: d.startDate||'',
     client:{ name:cl.name||'', address:fullAddr(cl).replace(/<[^>]+>/g,' ').trim() }, property:d.property||'', summary:d.summary||'',
     cols, groups: areasOf(d).map(g=>({area:g.area, items:g.items.map(r=>({desc:r.desc, qty:N(r.qty||1), price: cols.price?money(N(r.rate)*f):'', amount: cols.amount?money(N(r.qty||1)*N(r.rate)*f):''}))})),
     lines, total: money(t.total), totalNumber: t.total,
-    plan: pr.rows.map((r,i)=>({label:r.label||`Payment ${i+1}`, when:r.when||'', pct:r.kind==='%'?N(r.value):null, amount:money(r.amount)})),
+    plan: pr.rows.map((r,i)=>({label:r.label||`Payment ${i+1}`, when:r.whenText||'', pct:r.kind==='%'?N(r.value):null, amount:money(r.amount)})),
     notes:d.notes||'', contract: contractText(d), notices: legalNotices(d), updatedAt:new Date().toISOString() };
 }
 async function ensureShare(d){
@@ -2897,7 +2902,7 @@ function mailLayout(d, coll, text, shareUrl){
     card = t.balance>0.004
       ? `${label(pd.next ? 'Amount due now' : 'Amount due')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(pd.dueNow)}</div>
          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Invoice', esc(d.number))}${pd.next?row('This payment', esc(pd.next.label||'Payment')):''}${d.due?row('Due date', fdateEn(d.due)):''}${work?row('Work', esc(work)):''}${pd.next?row('Invoice total', money(t.total)):''}${t.paid>0?row('Paid so far', money(t.paid)):''}</table>
-         ${pd.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:4px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pd.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${r.st==='paid'?MUTE:INK}">${esc(r.label||'Payment '+(i+1))}${r.when?`<span style="color:${MUTE}"> · ${esc(r.when)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${r.st==='paid'?'#1e7a4c':INK};white-space:nowrap">${r.st==='paid'?'Paid':money(r.left)}</td></tr>`).join('')}</table></div>` : ''}
+         ${pd.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:4px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pd.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${r.st==='paid'?MUTE:INK}">${esc(r.label||'Payment '+(i+1))}${r.whenText?`<span style="color:${MUTE}"> · ${esc(r.whenText)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${r.st==='paid'?'#1e7a4c':INK};white-space:nowrap">${r.st==='paid'?'Paid':money(r.left)}</td></tr>`).join('')}</table></div>` : ''}
          ${main ? button(main.url, 'Pay Now') + `<div style="${F}font-size:12px;color:${MUTE};margin-top:12px;text-align:center">Secure online payment. If the button does not work, open this link:<br><a href="${esc(main.url)}" style="color:${SOFT}">${esc(main.url)}</a></div>` : ''}
          ${others.length ? `<div style="${F}font-size:13px;color:${SOFT};margin-top:14px;padding-top:12px;border-top:1px solid ${LINE}">${main?'Other ways to pay: ':''}${others.map(esc).join(' &nbsp;·&nbsp; ')}</div>` : ''}`
       : `${label('Invoice '+esc(d.number))}<div style="${F}font-size:26px;font-weight:bold;color:#1e7a4c;margin:4px 0 4px">Paid in full</div><div style="${F}font-size:13px;color:${SOFT}">Total ${money(t.total)}. Thank you!</div>`;
@@ -2910,9 +2915,9 @@ function mailLayout(d, coll, text, shareUrl){
     const scope = areas.length ? areas.slice(0,8) : items.slice(0,5).map(r=>r.desc.trim().slice(0,70));
     const more = (areas.length ? areas.length : items.length) - scope.length;
     card = `${label('Estimate total')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.total)}</div>
-      ${d.completion ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">${row('Estimated completion', fdateEn(d.completion))}</table>` : ''}
+      ${d.startDate || d.completion ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">${d.startDate?row('Estimated start', fdateEn(d.startDate)):''}${d.completion?row('Estimated completion', fdateEn(d.completion)):''}</table>` : ''}
       ${scope.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px">${label('Scope of work')}<div style="${F}font-size:14px;line-height:1.9;color:${INK};margin-top:6px">${scope.map(esc).join('<br>')}${more>0?`<br><span style="color:${MUTE}">and ${more} more, see the attached PDF</span>`:''}</div></div>` : ''}
-      ${(() => { const pr = planRows(d); return pr.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:12px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pr.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${INK}">${esc(r.label||'Payment '+(i+1))}${r.when?`<span style="color:${MUTE}"> · ${esc(r.when)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${INK};white-space:nowrap">${money(r.amount)}</td></tr>`).join('')}</table></div>` : ''; })()}
+      ${(() => { const pr = planRows(d); return pr.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:12px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pr.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${INK}">${esc(r.label||'Payment '+(i+1))}${r.whenText?`<span style="color:${MUTE}"> · ${esc(r.whenText)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${INK};white-space:nowrap">${money(r.amount)}</td></tr>`).join('')}</table></div>` : ''; })()}
       ${shareUrl ? button(shareUrl, 'Review and Sign') : button(acc, 'Accept Estimate')}
       <div style="${F}font-size:14px;margin-top:14px;text-align:center"><a href="${esc(q)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Ask a question</a> &nbsp;·&nbsp; <a href="${esc(ch)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Request changes</a></div>`;
   }
@@ -3035,11 +3040,25 @@ function calEvents(){
     if (okDate(p.start) && okDate(p.end) && p.end >= p.start) ev.push({from:p.start, to:p.end, kind:'proj', title:p.name, sub:'Proyecto', open, color});
     else { if (okDate(p.start)) ev.push({from:p.start, to:p.start, kind:'proj', title:'Inicio · '+p.name, sub:'Proyecto', open, color}); if (okDate(p.end)) ev.push({from:p.end, to:p.end, kind:'proj', title:'Fin · '+p.name, sub:'Proyecto', open, color}); }
   });
-  list('invoices').forEach(i => { const st = invStatus(i)[0]; if (okDate(i.due) && st!=='Pagada' && st!=='Borrador') ev.push({from:i.due, to:i.due, kind: st==='Vencida'?'bad':'inv', title:`Cobrar ${fmt(dueNow(i),1)} · ${clientName(i.clientId)||i.number}`, sub:'Vence factura '+i.number, open:'invoices:'+i.id}); });
+  list('projects').forEach(p => (p.subs||[]).forEach(r => { const left = N(r.cost)-N(r.paid); if (okDate(r.date) && left > 0.004) ev.push({from:r.date, to:r.date, kind:'pay', title:`Pagar ${fmt(left,1)} · ${r.name||r.work||'subcontratista'}`, sub:'Subcontratista · '+p.name, open:'projects:'+p.id}); }));
+  list('invoices').forEach(i => {
+    const st = invStatus(i)[0]; if (st==='Pagada' || st==='Borrador') return;
+    const who = clientName(i.clientId) || i.number; const open = 'invoices:'+i.id;
+    const dated = planDue(i).rows.filter(r => okDate(r.date) && r.left > 0.004);
+    dated.forEach(r => ev.push({from:r.date, to:r.date, kind: r.date < todayISO() ? 'bad' : 'inv', title:`Cobrar ${fmt(r.left,1)} · ${who}`, sub:`${r.label||'Pago'} · factura ${i.number}`, open}));
+    if (!dated.length && okDate(i.due)) ev.push({from:i.due, to:i.due, kind: st==='Vencida'?'bad':'inv', title:`Cobrar ${fmt(dueNow(i),1)} · ${who}`, sub:'Vence factura '+i.number, open});
+  });
   list('estimates').forEach(e => {
-    const st = estStatus(e)[0];
-    if (okDate(e.completion) && !(e.projectId && S.projects[e.projectId]?.end)) ev.push({from:e.completion, to:e.completion, kind:'est', title:'Terminación · '+docName(e,'estimates'), sub:'Estimado '+e.number, open:'estimates:'+e.id});
-    if (okDate(e.validUntil) && st==='Enviado') ev.push({from:e.validUntil, to:e.validUntil, kind:'est', title:'Vence estimado · '+(clientName(e.clientId)||e.number), sub:'Estimado '+e.number, open:'estimates:'+e.id});
+    const st = estStatus(e)[0]; const open = 'estimates:'+e.id; const pr = e.projectId && S.projects[e.projectId];
+    if (st==='Rechazado' || st==='Vencido' || st==='Borrador') return;
+    // once the job is a project with its own dates, the project is what shows
+    if (!(pr && (pr.start || pr.end))){
+      if (okDate(e.startDate) && okDate(e.completion) && e.completion >= e.startDate) ev.push({from:e.startDate, to:e.completion, kind:'est', title:docName(e,'estimates'), sub:'Estimado '+e.number+' · fechas estimadas', open});
+      else { if (okDate(e.startDate)) ev.push({from:e.startDate, to:e.startDate, kind:'est', title:'Inicio · '+docName(e,'estimates'), sub:'Estimado '+e.number, open}); if (okDate(e.completion)) ev.push({from:e.completion, to:e.completion, kind:'est', title:'Terminación · '+docName(e,'estimates'), sub:'Estimado '+e.number, open}); }
+    }
+    if (okDate(e.validUntil) && st==='Enviado') ev.push({from:e.validUntil, to:e.validUntil, kind:'est', title:'Vence estimado · '+(clientName(e.clientId)||e.number), sub:'Estimado '+e.number, open});
+    // payments of the schedule, until an invoice takes over
+    if (!(e.convertedTo && S.invoices[e.convertedTo])) planRows(e).rows.forEach(r => { if (okDate(r.date)) ev.push({from:r.date, to:r.date, kind:'inv', title:`Cobrar ${fmt(r.amount,1)} · ${clientName(e.clientId)||e.number}`, sub:`${r.label||'Pago'} · estimado ${e.number}`, open}); });
   });
   list('events').forEach(x => { if (okDate(x.date)) ev.push({from:x.date, to: okDate(x.endDate) && x.endDate >= x.date ? x.endDate : x.date, kind:'own', title:(x.time?x.time+' · ':'')+(x.title||'Evento'), sub: x.projectId && S.projects[x.projectId] ? S.projects[x.projectId].name : 'Evento', evId:x.id, time:x.time||''}); });
   return ev;
@@ -3069,7 +3088,7 @@ function vCalendar(){
   ${loading()? loadingBlock('tu calendario') : `
   <section class="card cal">
     <div class="cal-h"><div class="cal-nav"><button class="icon-btn" data-act="cal-prev" aria-label="Mes anterior">${I.left}</button><h2>${monthLabel(S.calMonth)}</h2><button class="icon-btn" data-act="cal-next" aria-label="Mes siguiente">${I.right}</button></div>
-      <div class="cal-legend"><span><i class="proj"></i>Proyectos</span><span><i class="inv"></i>Cobros</span><span><i class="est"></i>Estimados</span><span><i class="own"></i>Eventos</span>${S.calMonth!==curMonth()?`<button class="btn sm" data-act="cal-today">Hoy</button>`:''}</div></div>
+      <div class="cal-legend"><span><i class="proj"></i>Proyectos</span><span><i class="inv"></i>Cobros</span><span><i class="pay"></i>Pagos a subs</span><span><i class="est"></i>Estimados</span><span><i class="own"></i>Eventos</span>${S.calMonth!==curMonth()?`<button class="btn sm" data-act="cal-today">Hoy</button>`:''}</div></div>
     <div class="cal-dow">${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(x=>`<span>${x}</span>`).join('')}</div>
     <div class="cal-grid">${weeks.map(w=>w.map(cell).join('')).join('')}</div>
   </section>

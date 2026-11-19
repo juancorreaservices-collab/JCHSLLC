@@ -71,7 +71,7 @@ export default async function handler(req, res) {
       num: (nums.length ? Math.max(...nums) : 0) + 1,
       name: clean(`${who} – ${share.summary || groups[0]?.area || 'Project'}`, 60),
       type: clean(groups.map(g => g.area).join(', '), 80), clientId: est.clientId || '', owner: who, location: clean(share.property, 120),
-      month, order: Date.now(), start: '', end: /^\d{4}-\d{2}-\d{2}$/.test(share.completion || '') ? share.completion : '', status: 'No comenzado', price: Number(share.totalNumber) || 0, down: '', downDate: '',
+      month, order: Date.now(), start: /^\d{4}-\d{2}-\d{2}$/.test(share.startDate || '') ? share.startDate : '', end: /^\d{4}-\d{2}-\d{2}$/.test(share.completion || '') ? share.completion : '', status: 'No comenzado', price: Number(share.totalNumber) || 0, down: '', downDate: '',
       payments: [], purchases: [], subs: [], profitNote: '',
       tasks: groups.map(g => ({ text: clean(g.area, 80), status: 'Pendiente', notes: clean((g.items || []).map(i => i.desc).join('; '), 300) })),
       notes: `Creado al firmarse el estimado ${share.number} (${name}, ${now.slice(0, 10)}).`, fromEstimate: share.estimateId, createdAt: now, updatedAt: now,
