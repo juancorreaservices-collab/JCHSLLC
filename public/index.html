@@ -262,6 +262,18 @@ textarea.in{resize:vertical;min-height:80px}
 .ai-partial{font-size:13px;color:var(--ink-3);font-style:italic;min-height:0}
 .ai-partial:empty{display:none}
 .ai-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.qs{display:flex;flex-direction:column;gap:12px}
+.qs-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.qs-2{grid-template-columns:1fr}}
+.qs-chips{display:flex;flex-wrap:wrap;gap:6px}
+.qs-sug{display:flex;flex-direction:column;margin-top:-8px}
+.qs-sug:empty{display:none}
+.qs-sug button{display:flex;justify-content:space-between;gap:12px;border:0;border-bottom:1px solid var(--line);background:none;padding:8px 4px;text-align:left;cursor:pointer;color:var(--ink);font-size:13px}
+.qs-sug button:hover{background:var(--surface)}
+.qs-sug b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.qs-keep{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-2)}
+.qs-h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px}
+.qs-h h3{margin:0;font-size:14px}
 .notes-mic{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
 .notes-mic .dictp{flex:1;min-width:0}
 .micbtn.on{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
@@ -1243,11 +1255,12 @@ const loadingBlock = what => `<div class="card empty"><h3>Cargando ${what}…</h
 function vPanel(){
   const st = S.settings, ps = list('projects');
   const svc = list('services');
-  const svcProfit = svc.reduce((a,s)=>a+N(s.profit),0);
+  const qst = quickStats();
+  const svcProfit = svc.reduce((a,s)=>a+N(s.profit),0) + qst.profit;
   const done = ps.filter(p=>p.status==='Completado').reduce((a,p)=>a+pc(p).ganancia,0) + svcProfit;
   const projected = ps.reduce((a,p)=>a+pc(p).ganancia,0) + svcProfit;
   const goal = N(st.goalAmount)||1;
-  const cobrado = ps.reduce((a,p)=>a+pc(p).cobrado,0) + svc.reduce((a,s)=>a+N(s.charged),0);
+  const cobrado = ps.reduce((a,p)=>a+pc(p).cobrado,0) + svc.reduce((a,s)=>a+N(s.charged),0) + qst.charged;
   const porCobrar = ps.reduce((a,p)=>a+Math.max(0,pc(p).falta),0);
   const invs = list('invoices'); const venc = invs.filter(i=>invStatus(i)[0]==='Vencida');
   const ests = list('estimates').filter(e=>estStatus(e)[0]==='Enviado');
@@ -1257,6 +1270,7 @@ function vPanel(){
   const payments = [];
   ps.forEach(p => { if (N(p.down)) payments.push({date:p.downDate||p.start||'', amount:p.down, who:p.name, note:'Down payment'}); (p.payments||[]).forEach(x=>payments.push({date:x.date, amount:x.amount, who:p.name, note:x.note||'Pago'})); });
   svc.forEach(s=>{ if(N(s.charged)) payments.push({date:s.date||'', amount:s.charged, who:s.name+' · '+(s.client||''), note:'Servicio'}); });
+  quickInvs().forEach(i=>(i.payments||[]).forEach(x=>{ if (N(x.amount)) payments.push({date:x.date||i.date, amount:x.amount, who:(i.summary||i.number)+' · '+clientName(i.clientId), note:'Servicio'}); }));
   payments.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 
   const open = invs.filter(i=>!['Pagada','Borrador'].includes(invStatus(i)[0]) && docTotals(i).balance>0.004).sort((x,y)=>String(x.due||x.date).localeCompare(String(y.due||y.date)));
@@ -1264,7 +1278,7 @@ function vPanel(){
   const row = (coll, d, right, sub) => { const s2 = docStatus(d, coll); return `<button class="lrow" data-open="${coll}:${d.id}"><span class="lrow-m"><b>${esc(clientName(d.clientId)||'Sin cliente')}</b><small>${esc(docName(d,coll))} · ${esc(d.number)}${sub?' · '+sub:''}</small></span><span class="pill ${s2[1]}">${s2[0]}</span><b class="num">${right}</b></button>`; };
   return `
   <div class="head"><div><h1>Panel</h1><p>${monthLabel(curMonth())}</p></div>
-    <div class="tools"><button class="btn" data-act="new-project">${I.plus} Proyecto</button><button class="btn" data-act="new-est">${I.plus} Estimado</button><button class="btn primary" data-act="new-inv">${I.plus} Factura</button></div></div>
+    <div class="tools"><button class="btn" data-act="new-project">${I.plus} Proyecto</button><button class="btn" data-act="new-est">${I.plus} Estimado</button><button class="btn" data-act="quick-new">${I.plus} Servicio rápido</button><button class="btn primary" data-act="new-inv">${I.plus} Factura</button></div></div>
   ${loading()? loadingBlock('tus números') : `
   ${pendingApprovals().map(e=>`<section class="card apv-banner"><div><b>${esc(e.sign.name)} firmó el estimado ${esc(e.number)}</b><span class="muted">${esc(docName(e,'estimates'))} · ${fmt(docTotals(e).total,1)} · firmado el ${fdate(e.sign.at)}</span></div><button class="btn primary" data-act="approve-open" data-id="${e.id}">Revisar y aprobar factura</button></section>`).join('')}
   <div class="grid g3">
@@ -1304,7 +1318,7 @@ function vProjSummary(){
   const months = [...new Set(all.map(p=>p.month).filter(Boolean))].sort();
   if (S.sumMonth!=='all' && !months.includes(S.sumMonth)) S.sumMonth='all';
   const rows = all.filter(p=>S.sumMonth==='all'||p.month===S.sumMonth).sort((a,b)=>(N(a.num)||999)-(N(b.num)||999) || (a.name||'').localeCompare(b.name||''));
-  const svcProfit = list('services').reduce((a,s)=>a+N(s.profit),0);
+  const svcProfit = list('services').reduce((a,s)=>a+N(s.profit),0) + quickStats().profit;
   const cs = rows.map(p=>[p,pc(p)]);
   const sum = k => cs.reduce((a,[,c])=>a+c[k],0);
   const done = cs.filter(([p])=>p.status==='Completado').reduce((a,[,c])=>a+c.ganancia,0) + svcProfit;
@@ -2067,6 +2081,10 @@ async function act(name, el){
     case 'replies-read': { const d = S.doc && S[S.doc.coll][S.doc.id]; if (!d) return; (d.replies||[]).forEach(r=>r.unread=''); persist('estimates', d, true); renderDocNow(); return; }
     case 'reply': return compose({to:el.dataset.to, subject: el.dataset.subj, threadId: el.dataset.thread});
     case 'svc-add': { const s={id:uid('s'),name:'',client:'',status:'Pendiente',charged:'',profit:'',notes:'',date:todayISO(),order:Date.now()}; persist('services',s,true); renderView(); setTimeout(()=>$(`[data-svc="${s.id}"][data-k="name"]`)?.focus(),50); return; }
+    case 'quick-new': return quickModal();
+    case 'quick-save': return quickSave(!!el.dataset.send);
+    case 'quick-pick': { const it = S.items[el.dataset.id]; if (it){ $('#qs-desc').value = it.name; if (N(it.price)) $('#qs-amt').value = N(it.price); $('#qs-sug').innerHTML=''; ($('#qs-client').value? $('#qs-amt') : $('#qs-client')).focus(); } return; }
+    case 'svc-export': return exportServices();
     case 'svc-del': await remove('services', el.dataset.id); return renderView();
     case 'export': return exportCSV();
     case 'export-ledger': return exportLedger();
@@ -2657,7 +2675,7 @@ function vDocs(kind){
   };
   return `
   <div class="head"><div><h1>${isInv?'Facturas':'Estimados'}</h1><p>${isInv?'Crea, envía y cobra tus facturas.':'Cotiza trabajos y conviértelos en factura con un clic.'}</p></div>
-    <div class="tools"><button class="btn" data-go="productos">Productos y servicios</button><button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Crear factura':'Crear estimado'}</button></div></div>
+    <div class="tools">${isInv?`<button class="btn" data-act="quick-new">Servicio rápido</button>`:`<button class="btn" data-go="productos">Productos y servicios</button>`}<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Crear factura':'Crear estimado'}</button></div></div>
   ${loading()? loadingBlock(isInv?'tus facturas':'tus estimados') : `
   <div class="grid g4">${tiles}</div>
   <section class="card">
@@ -3379,16 +3397,96 @@ $('#view').addEventListener('input', e => {
 });
 
 /* ---------- Services (small jobs) ---------- */
+/* ---------- Quick service: small day-to-day jobs billed with one short form ---------- */
+const quickInvs = () => list('invoices').filter(i=>i.quick);
+function quickStats(){ let charged=0, profit=0; quickInvs().forEach(i=>{ const t=docTotals(i); charged+=t.paid; if (t.paid>0.004) profit += t.paid - N(i.cost); }); return {charged, profit}; }
+const quickSaved = () => list('items').filter(x=>x.quick).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+function quickModal(){
+  const saved = quickSaved();
+  openModal('Servicio rápido', `
+    <div class="qs">
+      ${saved.length?`<div class="qs-chips">${saved.slice(0,12).map(x=>`<button type="button" class="chip" data-act="quick-pick" data-id="${x.id}">${esc(x.name)}${N(x.price)?` · ${fmt(x.price,1)}`:''}</button>`).join('')}</div>`:''}
+      <div class="qs-2">
+        <label class="f"><span>Cliente</span><input class="in plain" id="qs-client" list="qs-clients" placeholder="Nombre del cliente" autocomplete="off"></label>
+        <label class="f"><span>Email del cliente</span><input class="in plain" id="qs-email" type="email" placeholder="cliente@email.com" autocomplete="off"></label>
+      </div>
+      <datalist id="qs-clients">${list('clients').sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist>
+      <label class="f"><span>Dirección del trabajo (opcional)</span><input class="in plain" id="qs-prop" placeholder="Dirección" autocomplete="off"></label>
+      <label class="f"><span>Servicio (en inglés, así lo ve el cliente)</span><input class="in plain" id="qs-desc" placeholder="Ej. Service call, Drywall patch" autocomplete="off"></label>
+      <div id="qs-sug" class="qs-sug"></div>
+      <div class="qs-2">
+        <label class="f"><span>Monto a cobrar</span><input class="in plain n" id="qs-amt" inputmode="decimal" placeholder="0.00"></label>
+        <label class="f"><span>Tu costo (opcional, no lo ve el cliente)</span><input class="in plain n" id="qs-cost" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+      <label class="f"><span>Detalle para el cliente (opcional)</span><textarea class="in plain" id="qs-notes" data-k="notes" rows="2" placeholder="Algo más que quieras que diga la factura"></textarea>${notesMic()}</label>
+      <label class="qs-keep"><input type="checkbox" id="qs-keep"> Guardar este servicio con su precio para elegirlo la próxima vez</label>
+      <div id="qs-msg"></div>
+    </div>`,
+    `<button class="btn" data-act="quick-save" data-send="">Guardar sin enviar</button><button class="btn primary" data-act="quick-save" data-send="1">${I.mail} Crear factura y enviar</button>`);
+  setTimeout(()=>$('#qs-client')?.focus(), 60);
+}
+function quickSuggest(){
+  const box = $('#qs-sug'); if (!box) return; const q = ($('#qs-desc').value||'').trim().toLowerCase();
+  if (q.length<2){ box.innerHTML=''; return; }
+  const words = q.split(/\s+/);
+  const hits = list('items').filter(x=>x.name && words.every(w=>x.name.toLowerCase().includes(w)) && x.name.toLowerCase()!==q).sort((a,b)=>(b.quick?1:0)-(a.quick?1:0) || a.name.length-b.name.length).slice(0,6);
+  box.innerHTML = hits.map(x=>`<button type="button" data-act="quick-pick" data-id="${x.id}"><span>${esc(x.name)}</span><b>${N(x.price)?fmt(x.price,1):''}</b></button>`).join('');
+}
+$('#modal').addEventListener('input', e => {
+  if (e.target.id==='qs-desc') quickSuggest();
+  if (e.target.id==='qs-client'){ const c = list('clients').find(x=>(x.name||'').toLowerCase()===e.target.value.trim().toLowerCase()); if (c){ if (c.email) $('#qs-email').value = c.email; const a = jobAddr(c); if (a && !$('#qs-prop').value) $('#qs-prop').value = a; } }
+});
+async function quickSave(send){
+  const msg = t => { $('#qs-msg').innerHTML = `<div class="note bad">${t}</div>`; };
+  const name = $('#qs-client').value.trim(), email = $('#qs-email').value.trim(), desc = $('#qs-desc').value.trim();
+  const amt = Math.round(N($('#qs-amt').value)*100)/100, cost = Math.round(N($('#qs-cost').value)*100)/100;
+  if (!name) return msg('Escribe el nombre del cliente.');
+  if (!desc) return msg('Escribe qué servicio se hizo.');
+  if (amt<=0) return msg('Escribe el monto a cobrar.');
+  if (send && !email) return msg('Para enviarla hace falta el email del cliente. También puedes guardarla sin enviar.');
+  if (quickSave.busy) return; quickSave.busy = true;
+  try {
+    let c = list('clients').find(x=>(x.name||'').toLowerCase()===name.toLowerCase());
+    const prop = $('#qs-prop').value.trim();
+    if (!c){ c = {id:uid('c'), name, contactFirst:'', contactLast:'', email, phone:'', mobile:'', company:'', website:'', account:'', address:prop, address2:'', city:'', state:'FL', zip:'', shipSame:'', notes:'', createdAt:new Date().toISOString()}; persist('clients', c, true); }
+    else if (email && c.email!==email && !c.email){ c.email = email; persist('clients', c, true); }
+    if ($('#qs-keep').checked){ const it = list('items').find(x=>(x.name||'').toLowerCase()===desc.toLowerCase()); if (it){ it.quick='1'; it.price=amt; persist('items', it, true); } else persist('items', {id:uid('it'), name:desc, area:'', desc:'', price:amt, quick:'1', createdAt:new Date().toISOString()}, true); }
+    const extra = $('#qs-notes').value.trim();
+    const d = await newDoc('invoices', {clientId:c.id, property:prop||jobAddr(c)||'', summary:desc, quick:'1', cost: cost||'', terms:'0', due:todayISO(), items:[{area:'', desc: extra? desc+' - '+extra : desc, qty:1, rate:amt}], showArea:''}, true, true);
+    if (email && c.email!==email) d.sendTo = email;
+    closeModal(); renderView(); render();
+    if (send){ await composeInvoice(d); if (email && c.email!==email){ const to = $('#m-to'); if (to) to.value = email; } }
+    else toast(`Factura ${d.number} guardada`);
+  } finally { quickSave.busy = false; }
+}
+async function exportServices(){
+  const rows = [['Fecha','Servicio','Cliente','Factura','Estado','Cobrado','Costo','Ganancia','Notas']];
+  quickInvs().sort((a,b)=>String(b.date).localeCompare(String(a.date))).forEach(i=>{ const t=docTotals(i); rows.push([i.date, i.summary||autoDocName(i), clientName(i.clientId), i.number, invStatus(i)[0], t.paid, N(i.cost), t.paid>0.004? t.paid-N(i.cost):0, '']); });
+  list('services').forEach(s=>rows.push([s.date, s.name, s.client, '', s.status, N(s.charged), '', N(s.profit), s.notes]));
+  const csv = rows.map(r=>r.map(v=>{const x=String(v??''); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x;}).join(',')).join('\n');
+  if (!S.dl){ toast('La descarga no está disponible en esta vista'); return; }
+  try { await S.dl.save({filename:`JCHS-servicios-${todayISO()}.csv`, data:'﻿'+csv}); } catch(e){ if (e?.code!=='cancelled' && e?.code!=='declined') toast('No se pudo descargar el archivo'); }
+}
 function vServices(){
   const ss = list('services').sort((a,b)=>(a.order||0)-(b.order||0));
+  const qi = quickInvs().sort((a,b)=>String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number)));
+  const qs = quickStats(); const pend = qi.reduce((a,i)=>a+Math.max(0,docTotals(i).balance),0);
   const inp = (s,k,type='text',ph='') => `<input class="in ${type==='money'?'n':''}" data-svc="${s.id}" data-k="${k}" ${type==='money'?'inputmode="decimal"':''} placeholder="${ph}" value="${esc(s[k]??'')}">`;
   return `
-  <div class="head"><div><h1>Servicios</h1><p>Trabajos pequeños que no necesitan un proyecto completo. Su ganancia cuenta para la meta.</p></div><div class="tools"><button class="btn primary" data-act="svc-add">${I.plus} Agregar servicio</button></div></div>
-  ${loading()? loadingBlock('tus servicios') : `<section class="card"><div class="tbl-wrap"><table style="min-width:820px">
+  <div class="head"><div><h1>Servicios</h1><p>Trabajos pequeños del día a día: se facturan sin estimado ni proyecto.</p></div><div class="tools"><button class="btn" data-act="svc-export">Exportar lista</button><button class="btn primary" data-act="quick-new">${I.plus} Servicio rápido</button></div></div>
+  ${loading()? loadingBlock('tus servicios') : `
+  <div class="grid g3" style="margin-bottom:16px"><div class="card tile"><span class="label">Cobrado</span><strong class="num">${fmt(qs.charged + ss.reduce((a,s)=>a+N(s.charged),0),1)}</strong><small>Servicios pagados</small></div>
+    <div class="card tile ${pend?'alert':''}"><span class="label">Por cobrar</span><strong class="num">${fmt(pend,1)}</strong><small>Facturas de servicios sin pagar</small></div>
+    <div class="card tile"><span class="label">Ganancia</span><strong class="num">${fmt(qs.profit + ss.reduce((a,s)=>a+N(s.profit),0),1)}</strong><small>Cuenta para tu meta</small></div></div>
+  <section class="card"><div class="qs-h"><h3>Servicios facturados</h3></div><div class="tbl-wrap"><table style="min-width:680px">
+    <thead><tr><th>Fecha</th><th>Servicio</th><th>Cliente</th><th>Estado</th><th class="n">Monto</th><th class="n">Ganancia</th></tr></thead>
+    <tbody>${qi.map(i=>{ const t=docTotals(i), st=invStatus(i); return `<tr class="click" data-open="invoices:${i.id}"><td>${fdate(i.date)}</td><td><strong>${esc(i.summary||autoDocName(i))}</strong><br><small class="muted">${esc(i.number)}</small></td><td>${esc(clientName(i.clientId))}</td><td><span class="pill ${st[1]}">${st[0]}</span></td><td class="n">${fmt(t.total,1)}</td><td class="n">${t.paid>0.004?fmt(t.paid-N(i.cost),1):'—'}</td></tr>`; }).join('') || `<tr><td colspan="6"><div class="empty"><span>Todavía no hay servicios facturados. Usa "Servicio rápido" para crear el primero.</span></div></td></tr>`}</tbody>
+  </table></div></section>
+  ${ss.length?`<section class="card" style="margin-top:16px"><div class="qs-h"><h3>Registro anterior</h3><button class="btn sm" data-act="svc-add">${I.plus} Agregar fila</button></div><div class="tbl-wrap"><table style="min-width:820px">
     <thead><tr><th>Servicio</th><th>Cliente / lugar</th><th>Fecha</th><th>Estado</th><th class="n">Cobrado</th><th class="n">Ganancia</th><th>Notas</th><th></th></tr></thead>
-    <tbody>${ss.map(s=>`<tr><td>${inp(s,'name','text','Servicio')}</td><td>${inp(s,'client','text','Cliente')}</td><td><input class="in" type="date" data-svc="${s.id}" data-k="date" value="${esc(s.date||'')}"></td><td><select class="in" data-svc="${s.id}" data-k="status">${['Pendiente','En progreso','Completado'].map(x=>`<option ${x===s.status?'selected':''}>${x}</option>`).join('')}</select></td><td>${inp(s,'charged','money','0')}</td><td>${inp(s,'profit','money','0')}</td><td>${inp(s,'notes','text','Notas')}</td><td><button class="icon-btn" data-act="svc-del" data-id="${s.id}" aria-label="Eliminar">${I.trash}</button></td></tr>`).join('') || `<tr><td colspan="8"><div class="empty"><span>Sin servicios todavía.</span></div></td></tr>`}</tbody>
+    <tbody>${ss.map(s=>`<tr><td>${inp(s,'name','text','Servicio')}</td><td>${inp(s,'client','text','Cliente')}</td><td><input class="in" type="date" data-svc="${s.id}" data-k="date" value="${esc(s.date||'')}"></td><td><select class="in" data-svc="${s.id}" data-k="status">${['Pendiente','En progreso','Completado'].map(x=>`<option ${x===s.status?'selected':''}>${x}</option>`).join('')}</select></td><td>${inp(s,'charged','money','0')}</td><td>${inp(s,'profit','money','0')}</td><td>${inp(s,'notes','text','Notas')}</td><td><button class="icon-btn" data-act="svc-del" data-id="${s.id}" aria-label="Eliminar">${I.trash}</button></td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="4">Total</td><td class="n" id="svc-c">${fmt(ss.reduce((a,s)=>a+N(s.charged),0))}</td><td class="n" id="svc-p">${fmt(ss.reduce((a,s)=>a+N(s.profit),0))}</td><td colspan="2"></td></tr></tfoot>
-  </table></div></section>`}`;
+  </table></div></section>`:''}`}`;
 }
 $('#view').addEventListener('input', e => {
   const el = e.target;
@@ -3507,6 +3605,7 @@ function ledger(){
     (p.subs||[]).forEach(x => { if (N(x.paid)) tx.push({date: fallbackDate(x.date, p.month), kind:'out', cat:'Subcontratistas', amount:N(x.paid), who:x.name||'Sin nombre', note:`${x.work||''} · ${p.name}`}); });
   });
   list('invoices').forEach(inv => { if (validProj(inv.projectId)) return; (inv.payments||[]).forEach(x => { if (N(x.amount)) tx.push({date:x.date||inv.date, kind:'in', cat:'Facturas', amount:N(x.amount), who:clientName(inv.clientId), note:inv.number}); }); });
+  quickInvs().forEach(i => { if (N(i.cost) && docTotals(i).paid>0.004) tx.push({date:i.date, kind:'out', cat:'Materiales', amount:N(i.cost), who:clientName(i.clientId), note:`Costo · ${i.summary||i.number}`}); });
   list('services').forEach(s => {
     if (N(s.charged)) tx.push({date:s.date||'', kind:'in', cat:'Servicios', amount:N(s.charged), who:s.client||'', note:s.name});
     const cost = N(s.charged) - N(s.profit);
