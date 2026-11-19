@@ -1,11 +1,13 @@
 {
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/_blob/:id", "destination": "/api/blob?id=:id" }
+    { "source": "/_blob/:id", "destination": "/api/blob?id=:id" },
+    { "source": "/e/:token", "destination": "/e.html" }
   ],
   "functions": {
     "api/ai.js": { "maxDuration": 300 },
     "api/gmail.js": { "maxDuration": 60 },
+    "api/sign.js": { "maxDuration": 30 },
     "api/setup.js": { "maxDuration": 60, "includeFiles": "supabase/schema.sql" }
   },
   "headers": [

@@ -687,6 +687,29 @@ button.lrow:hover{background:var(--surface-2)}
   .doc-paper .dp-notes{padding:20px}
   .docname-row .linkbtn{margin-left:0}
 }
+.dp-plan{padding:20px 40px 24px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.dp-plan-h{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.plan-presets{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.plan-rows{display:flex;flex-direction:column}
+.plan-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) 84px 92px 120px 32px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.plan-row.hd{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding-bottom:8px}
+.plan-row .r{text-align:right}
+.plan-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.plan-status{font-size:13px;font-weight:600}
+.plan-status.ok{color:var(--ok,#1e7a4c)}
+.plan-status.warn{color:var(--warn)}
+.plan-contract{font-size:14px;color:var(--ink-2);padding-top:4px}
+.signed{display:flex;align-items:center;gap:18px;padding:16px 18px;flex-wrap:wrap}
+.signed img{height:56px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+.signed-t{display:flex;flex-direction:column;gap:2px}
+@media (max-width:760px){
+  .dp-plan{padding:18px 20px}
+  .plan-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:12px 0}
+  .plan-row.hd{display:none}
+  .plan-row > :nth-child(1),.plan-row > :nth-child(2){grid-column:1/-1}
+  .plan-row > :nth-child(5){grid-column:1;text-align:left}
+  .plan-row > :nth-child(6){grid-column:2;justify-self:end}
+}
 /* icons inside text never grow past text size */
 :where(.note,.hidnote,.banner,.toast,.pill,small,p,label,.muted) > svg{width:16px;height:16px;flex:none;vertical-align:-3px;display:inline-block}
 .note.bad{background:var(--bad-soft);color:var(--bad)}
@@ -882,6 +905,7 @@ const DEFAULT_SETTINGS = {
   invPrefix:'INV-', invNext:1001, estPrefix:'EST-', estNext:1001, taxRate:0, payDays:15, markup:15,
   estTerms:'Thank you for the opportunity to work on your home. Please let me know if you have any questions.',
   invTerms:'Thank you for your business!',
+  contractTerms:'',
   stripeLink:'', whopLink:'', fanbasisLink:'', paypalMe:'', cashtag:'', venmo:'', zelle:'', checkPayable:'JCHS LLC', threshold1099:2000
 };
 const S = {
@@ -936,6 +960,27 @@ function docTotals(d){
 const MON_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const fdateEn = iso => { if(!iso) return ''; const [y,m,d]=String(iso).slice(0,10).split('-'); return MON_EN[+m-1]+' '+(+d)+', '+y; };
 const money = v => '$' + N(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+/* Payment schedule of an estimate: rows of {label, when, kind:'%'|'$'|'rest', value}. */
+const PLAN_PRESETS = {
+  '50-50': [['Deposit','Upon acceptance','%',50],['Final payment','Upon completion','rest','']],
+  '30-40-30': [['Deposit','Upon acceptance','%',30],['Progress payment','At the midpoint of the work','%',40],['Final payment','Upon completion','rest','']],
+  'thirds': [['First payment','Upon acceptance','%',33.33],['Second payment','At the midpoint of the work','%',33.33],['Final payment','Upon completion','rest','']],
+  'custom': [['Deposit','Upon acceptance','%',''],['Final payment','Upon completion','rest','']],
+};
+function planRows(d){
+  const total = docTotals(d).total; let used = 0;
+  const rows = (d.plan||[]).map((r,i) => { let a = r.kind==='$' ? N(r.value) : r.kind==='rest' ? 0 : total*N(r.value)/100; a = Math.round(a*100)/100; if (r.kind!=='rest') used += a; return {...r, i, amount:a}; });
+  rows.forEach(r => { if (r.kind==='rest') r.amount = Math.max(0, Math.round((total-used)*100)/100); });
+  const sum = Math.round(rows.reduce((a,r)=>a+r.amount,0)*100)/100;
+  return { rows, sum, total, diff: Math.round((total-sum)*100)/100 };
+}
+const planStatus = pr => !pr.rows.length ? '' : Math.abs(pr.diff) < 0.01 ? `Los pagos suman el total: ${fmt(pr.total,1)}` : pr.diff > 0 ? `Faltan ${fmt(pr.diff,1)} por repartir` : `Los pagos pasan el total por ${fmt(-pr.diff,1)}`;
+const CONTRACT_SAMPLE = `1. Scope. The contractor will perform the work described in this estimate at the property listed above.
+2. Price and payments. The client agrees to pay the total shown in this estimate according to the payment schedule above.
+3. Changes. Any change to the scope of work or to the price must be agreed in writing (email is acceptable) before the additional work is done.
+4. Access. The client will provide access to the property so the work can be completed.
+5. Acceptance. By signing, the client accepts this estimate and authorizes the contractor to proceed with the work.`;
+const contractText = d => (d.noContract ? '' : (S.settings.contractTerms||'').trim());
 function areasOf(d){ const g=[]; (d.items||[]).filter(r=>(r.desc||'').trim()).forEach(r=>{ const a=(r.area||'').trim()||'Scope of Work'; let x=g.find(y=>y.area===a); if(!x){x={area:a,items:[]};g.push(x);} x.items.push(r); }); return g; }
 /* A readable name for each estimate / invoice, built from what it is about.
    The owner can type his own in the editor; the number stays as the reference. */
@@ -1645,6 +1690,7 @@ function onEditChange(e){
   const el = e.target; const o = cur(); if (!o || !el.dataset.k || el.dataset.svc || el.dataset.set || el.dataset.item) return;
   const dc = ctxColl();
   if (el.tagName==='SELECT' || el.type==='date'){ if (el.dataset.list!=null){ const r=(o[el.dataset.list]||[])[+el.dataset.i]; if (r) r[el.dataset.k]=el.value; } else o[el.dataset.k]=el.value; }
+  if (el.dataset.list==='plan' && el.dataset.k==='kind'){ persist(dc, o); return renderDrawer(); }
   if ((dc==='estimates'||dc==='invoices') && el.dataset.list==null){
     if (el.dataset.k==='clientId'){
       if (el.value==='__new'){ o.clientId=''; persist(dc,o,true); renderDrawer(); quickClientModal(dc, o.id); return; }
@@ -1759,6 +1805,16 @@ async function act(name, el){
     case 'rm-markup': o.useMarkup = ''; persist(coll,o); renderDrawer(); return;
     case 'add-tax': o.showTax = '1'; persist(coll,o); renderDrawer('[data-k="taxRate"]'); return;
     case 'rm-tax': o.showTax = ''; o.taxRate = 0; persist(coll,o); renderDrawer(); return;
+    case 'copy-share': { const e = cur(); try { const u = await ensureShare(e); await navigator.clipboard.writeText(u); toast('Link copiado'); } catch(_){ toast('No se pudo copiar el link'); } return; }
+    case 'contract-sample': S.settings.contractTerms = CONTRACT_SAMPLE; saveSettings(); renderView(); toast('Texto base agregado. Léelo y ajústalo a tu negocio.'); return;
+    case 'plan-preset': o.plan = PLAN_PRESETS[el.dataset.v].map(([label,when,kind,value])=>({label,when,kind,value})); o.showDep = ''; o.deposit = ''; persist(coll,o); return renderDrawer(el.dataset.v==='custom'?'[data-list="plan"][data-i="0"][data-k="value"]':undefined);
+    case 'plan-add': { const pl = o.plan ||= []; const at = pl.findIndex(r=>r.kind==='rest'); const row = {label:'Progress payment', when:'', kind:'%', value:''}; if (at>=0) pl.splice(at,0,row); else pl.push(row); persist(coll,o); return renderDrawer(`[data-list="plan"][data-i="${at>=0?at:pl.length-1}"][data-k="label"]`); }
+    case 'plan-clear': o.plan = []; persist(coll,o); return renderDrawer();
+    case 'contract-toggle': o.noContract = el.checked ? '' : '1'; persist(coll,o); return;
+    case 'plan-invoice': { const e = cur(); const pr = planRows(e); const r = pr.rows[+el.dataset.i]; if (!e || !r) return; if (!e.clientId){ toast('Elige un cliente primero'); return; }
+      const n = +el.dataset.i + 1; const lab = r.label || `Payment ${n}`;
+      const inv = await newDoc('invoices', {clientId:e.clientId, projectId:e.projectId, property:e.property, summary:`${lab} · Estimate ${e.number}`, items:[{area:'', desc:`${lab} (payment ${n} of ${pr.rows.length}) – Estimate ${e.number}${e.property?' – '+e.property:''}`, qty:1, rate:r.amount}], fromEstimate:e.id, planIndex:+el.dataset.i, showPrices:'1', notes:S.settings.invTerms}, true);
+      const e2 = S.estimates[e.id]; if (e2 && inv){ e2.plan[+el.dataset.i].invoiceId = inv.id; persist('estimates', e2, true); } return; }
     case 'add-dep': o.showDep = '1'; o.depType = o.depType || '%'; persist(coll,o); renderDrawer('[data-k="deposit"]'); return;
     case 'rm-dep': o.showDep = ''; o.deposit = ''; persist(coll,o); renderDrawer(); return;
     case 'toggle-area': o.showArea = o.showArea==='' ? '1' : ''; persist(coll,o); renderDrawer(); return;
@@ -2350,7 +2406,17 @@ function docEdit(d, coll, isInv){
         ${d.showTax || N(d.taxRate) ? totRow('<span>Impuesto</span>', fmt(t.tax,1), 'tax', `<input class="in plain n sm" data-k="taxRate" inputmode="decimal" placeholder="0" value="${esc(d.taxRate??'')}"><span class="muted">%</span>`, 'rm-tax') : `<div class="dtr link"><button class="linkbtn" data-act="add-tax">${I.plus} Agregar impuesto</button></div>`}
         <div class="dtr total"><span>Total</span><span class="dtr-x"><span class="cur">USD</span></span><b class="num" data-tot="total">${fmt(t.total,1)}</b><span style="width:28px"></span></div>
       </div>
-      ${!isInv ? `<div class="dp-dep">${d.showDep ? `<div class="dtr">${'<span>Depósito requerido</span>'}<span class="dtr-x"><input class="in plain n sm" data-k="deposit" inputmode="decimal" placeholder="0" value="${esc(d.deposit??'')}"><select class="in plain sm" data-k="depType"><option value="%" ${d.depType!=='$'?'selected':''}>%</option><option value="$" ${d.depType==='$'?'selected':''}>$</option></select></span><b class="num" data-tot="dep">${fmt(t.dep,1)}</b><button class="icon-btn" data-act="rm-dep" aria-label="Quitar depósito">${I.x}</button></div>` : `<button class="linkbtn" data-act="add-dep">${I.plus} Solicitar depósito</button>`}</div>` : ''}
+      ${!isInv && d.showDep ? `<div class="dp-dep"><div class="dtr"><span>Depósito requerido</span><span class="dtr-x"><input class="in plain n sm" data-k="deposit" inputmode="decimal" placeholder="0" value="${esc(d.deposit??'')}"><select class="in plain sm" data-k="depType"><option value="%" ${d.depType!=='$'?'selected':''}>%</option><option value="$" ${d.depType==='$'?'selected':''}>$</option></select></span><b class="num" data-tot="dep">${fmt(t.dep,1)}</b><button class="icon-btn" data-act="rm-dep" aria-label="Quitar depósito">${I.x}</button></div></div>` : ''}
+      ${!isInv ? (() => { const pr = planRows(d); const has = (d.plan||[]).length; return `<div class="dp-plan">
+        <div class="dp-plan-h"><div class="lbl">Plan de pagos</div>${has?`<button class="linkbtn muted-l" data-act="plan-clear">Quitar plan</button>`:''}</div>
+        ${has ? `<div class="plan-rows">
+            <div class="plan-row hd"><span>Pago</span><span>Cuándo</span><span class="r">Valor</span><span></span><span class="r">Monto</span><span></span></div>
+            ${d.plan.map((r,i)=>`<div class="plan-row"><input class="in plain" data-list="plan" data-i="${i}" data-k="label" placeholder="Ej. Deposit" value="${esc(r.label||'')}"><input class="in plain" data-list="plan" data-i="${i}" data-k="when" placeholder="Ej. Upon acceptance" value="${esc(r.when||'')}"><input class="in plain n" data-list="plan" data-i="${i}" data-k="value" inputmode="decimal" placeholder="${r.kind==='rest'?'—':'0'}" value="${r.kind==='rest'?'':esc(r.value??'')}" ${r.kind==='rest'?'disabled':''}><select class="in plain" data-list="plan" data-i="${i}" data-k="kind"><option value="%" ${r.kind==='%'?'selected':''}>%</option><option value="$" ${r.kind==='$'?'selected':''}>$</option><option value="rest" ${r.kind==='rest'?'selected':''}>Resto</option></select><b class="num r" data-plan-amt="${i}">${fmt(pr.rows[i].amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="plan" data-i="${i}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}
+          </div>
+          <div class="plan-foot"><button class="linkbtn" data-act="plan-add">${I.plus} Agregar pago</button><span class="plan-status ${Math.abs(pr.diff)<0.01?'ok':'warn'}" data-plan-status>${planStatus(pr)}</span></div>`
+        : `<div class="plan-presets"><span class="muted">Elige cómo se reparten los pagos:</span><button class="chip" data-act="plan-preset" data-v="50-50">50% / 50%</button><button class="chip" data-act="plan-preset" data-v="30-40-30">30% / 40% / 30%</button><button class="chip" data-act="plan-preset" data-v="thirds">3 pagos iguales</button><button class="chip" data-act="plan-preset" data-v="custom">Personalizado</button></div>`}
+        <label class="chk plan-contract"><input type="checkbox" data-act="contract-toggle" ${d.noContract?'':'checked'} ${(S.settings.contractTerms||'').trim()?'':'disabled'}> Incluir contrato para que el cliente firme al aceptar${(S.settings.contractTerms||'').trim()?'':' <span class="muted">(primero escribe el texto en Más → Ajustes)</span>'}</label>
+      </div>`; })() : ''}
       <div class="dp-notes"><label class="f"><span class="label">Notas / Términos</span><textarea class="in plain" data-k="notes" rows="4" placeholder="Escribe notas o términos para el cliente">${esc(d.notes||'')}</textarea></label>${notesMic()}</div>
     </section>
     <div class="tools" style="justify-content:flex-end"><button class="btn outline" data-act="preview">Vista previa</button><button class="btn primary" data-act="doc-save">Guardar y continuar</button></div>
@@ -2360,6 +2426,7 @@ function refreshDocTotals(d){
   const t = docTotals(d); const set = (k,v) => { const el = $(`#view [data-tot="${k}"]`); if (el) el.textContent = v; };
   set('base', fmt(t.base,1)); set('disc', '-'+fmt(t.disc,1)); set('mk', fmt(t.mk,1)); set('tax', fmt(t.tax,1)); set('total', fmt(t.total,1)); set('dep', fmt(t.dep,1));
   (d.items||[]).forEach((r,i)=>{ const el = $(`#view [data-line="${i}"]`); if (el) el.textContent = fmt(N(r.qty||1)*N(r.rate),1); });
+  if ((d.plan||[]).length){ const pr = planRows(d); pr.rows.forEach(r=>{ const el = $(`#view [data-plan-amt="${r.i}"]`); if (el) el.textContent = fmt(r.amount,1); }); const ps = $('#view [data-plan-status]'); if (ps){ ps.textContent = planStatus(pr); ps.className = 'plan-status ' + (Math.abs(pr.diff)<0.01?'ok':'warn'); } }
 }
 function docView(d, coll, isInv){
   const t = docTotals(d); const s = docStatus(d, coll); const cl = S.clients[d.clientId];
@@ -2383,6 +2450,9 @@ function docView(d, coll, isInv){
       <div><span class="label">${isInv?'Vence':'Válido hasta'}</span><b>${isInv?fdate(d.due):(d.validUntil?fdate(d.validUntil):'—')}</b></div>
     </section>
     ${conv?`<div class="note ok">Este estimado se convirtió en la factura <b>${esc(conv.number)}</b>.</div>`:''}
+    ${!isInv && d.sign?.name ? `<section class="card signed"><div><span class="pill ok">Firmado</span></div>${d.sign.image?`<img src="${esc(d.sign.image)}" alt="Firma de ${esc(d.sign.name)}">`:''}<div class="signed-t"><b>${esc(d.sign.name)}</b><span class="muted">Firmó el ${fdate(d.sign.at)}${d.sign.ip?' · IP '+esc(d.sign.ip):''}</span></div></section>` : ''}
+    ${!isInv && (d.plan||[]).length ? (() => { const pr = planRows(d); return `<section class="card lcard"><div class="lcard-h"><h3>Plan de pagos</h3><span class="muted" style="font-size:13px">${planStatus(pr)}</span></div>${pr.rows.map((r,i)=>{ const inv = r.invoiceId && S.invoices[r.invoiceId]; const st2 = inv && invStatus(inv); return `<div class="lrow static"><span class="lrow-m"><b>${i+1}. ${esc(r.label||'Pago '+(i+1))}${r.kind==='%'?` · ${N(r.value)}%`:''}</b><small>${esc(r.when||'')}</small></span>${inv?`<span class="pill ${st2[1]}">${st2[0]}</span>`:''}<b class="num">${fmt(r.amount,1)}</b>${inv?`<button class="btn sm" data-open="invoices:${inv.id}">Ver factura</button>`:`<button class="btn sm" data-act="plan-invoice" data-i="${i}">Facturar</button>`}</div>`; }).join('')}</section>`; })() : ''}
+    ${!isInv && d.shareToken && window.claude?.standalone ? `<div class="note">${I.link} Página para que el cliente revise y firme: <a href="/e/${esc(d.shareToken)}" target="_blank" rel="noopener">${esc(location.origin)}/e/${esc(d.shareToken)}</a> <button class="btn sm" data-act="copy-share">Copiar link</button></div>` : ''}
     ${!isInv ? repliesCard(d) : ''}
     ${(d.files||[]).length ? `<section class="card replies"><div class="sec-h"><h3>Documentos adjuntos</h3><span class="muted" style="font-size:12px">Solo para ti, no se envían al cliente</span></div><div class="aifiles">${d.files.map(f=>`<a class="fchip" href="/_blob/${esc(f.id)}" target="_blank" rel="noopener">${f.type==='application/pdf'?'PDF':'IMG'}<b>${esc(f.name)}</b></a>`).join('')}</div></section>` : ''}
     ${isInv && d.fromEstimate && S.estimates[d.fromEstimate] ? `<div class="note">Creada desde el estimado <button class="linkbtn" data-act="open-est" data-id="${d.fromEstimate}">${esc(S.estimates[d.fromEstimate].number)}</button></div>`:''}
@@ -2527,6 +2597,13 @@ function paperHTML(d, coll){
       + (isInv ? `${line('Total', money(t.total))}${t.paid?line('Paid', '-'+money(t.paid)):''}${line('Balance due', money(t.balance), 'due')}` : `${line('TOTAL', money(t.total), 'due')}${t.dep?line('Deposit required', money(t.dep)):''}`) + `</div>`;
   }
   if (isInv && t.balance>0 && payLinks(d).length) body += `<div class="paybox"><div class="lab">How to pay</div><div>${payLinks(d).filter(l=>l.url).map(l=>`<a class="paybtn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.btn)}</a>`).join('')}</div>${payLinks(d).filter(l=>l.text).map(l=>`<div>${esc(l.text)}</div>`).join('')}</div>`;
+  if (!isInv){
+    const pr = planRows(d);
+    if (pr.rows.length) body += `<div style="margin-top:22px"><div class="lab">Payment schedule</div><table style="margin-top:6px"><tbody>${pr.rows.map((r,i)=>`<tr><td style="width:28px;color:#7b828c">${i+1}.</td><td><b>${esc(r.label||'Payment '+(i+1))}</b>${r.when?`<div style="color:#4a5059;font-size:13px">${esc(r.when)}</div>`:''}</td><td class="n" style="color:#4a5059">${r.kind==='%'?N(r.value)+'%':''}</td><td class="n"><b>${money(r.amount)}</b></td></tr>`).join('')}</tbody></table></div>`;
+    const ct = contractText(d);
+    if (ct) body += `<div style="margin-top:22px"><div class="lab">Agreement</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-top:6px">${esc(ct)}</div></div>`;
+    if (d.sign?.name) body += `<div style="margin-top:22px;border:1px solid #e1e4e9;border-radius:8px;padding:14px 16px"><div class="lab">Accepted and signed</div>${d.sign.image?`<img src="${esc(d.sign.image)}" alt="Signature" style="height:64px;display:block;margin:6px 0">`:''}<b>${esc(d.sign.name)}</b><div style="color:#4a5059;font-size:13px">${fdateEn(String(d.sign.at||'').slice(0,10))}${d.sign.ip?' · IP '+esc(d.sign.ip):''}</div></div>`;
+  }
   const close = `${d.notes?`<div class="notes">${esc(d.notes)}</div>`:''}<div style="margin-top:18px"><b>${esc(st.ownerName)}</b><br>${esc(st.tradeName)}<br>${esc(st.phone)}<br>${esc(st.email)}</div>
     <div style="margin-top:26px;border-top:1px solid #e1e4e9;padding-top:8px;font-size:11px;color:#7b828c;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(bizLine())}</span><span>Page 1</span></div>`;
   return head + body + close;
@@ -2597,6 +2674,33 @@ function makePDF(d, coll){
       links.forEach(l => { if (l.url){ pdf.setTextColor(31,58,95); pdf.textWithLink(`${l.btn}: ${l.url}`.slice(0,95), M, y, {url:l.url}); pdf.setTextColor(21,23,26); } else pdf.text(l.text, M, y); y += 16; }); y += 8; }
   }
   pdf.setTextColor(21,23,26);
+  if (!isInv){
+    const pr = planRows(d);
+    if (pr.rows.length){
+      need(34 + pr.rows.length*30); pdf.setFont('helvetica','bold'); pdf.setFontSize(11); pdf.text('Payment schedule', M, y); y += 18;
+      pr.rows.forEach((r,i) => { pdf.setFont('helvetica','bold'); pdf.setFontSize(10.5); pdf.text(`${i+1}. ${r.label||'Payment '+(i+1)}`, M, y); pdf.text(money(r.amount), W-M, y, {align:'right'});
+        if (r.kind==='%'){ pdf.setFont('helvetica','normal'); pdf.text(`${N(r.value)}%`, W-M-110, y, {align:'right'}); }
+        if (r.when){ pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5); pdf.setTextColor(74,80,89); pdf.text(String(r.when), M+14, y+12); pdf.setTextColor(21,23,26); y += 12; }
+        y += 18; });
+      y += 8;
+    }
+    const ct = contractText(d);
+    if (ct){
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(11); need(40); pdf.text('Agreement', M, y); y += 16;
+      pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5);
+      pdf.splitTextToSize(ct, W-2*M).forEach(line => { need(14); pdf.text(line, M, y); y += 12.5; });
+      y += 14; need(96);
+      if (d.sign?.name){
+        if (d.sign.image){ try { pdf.addImage(d.sign.image, 'PNG', M, y-6, 150, 50); } catch(_){} }
+        y += 52; pdf.setDrawColor(21,23,26); pdf.setLineWidth(.6); pdf.line(M, y, M+230, y); y += 13;
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.text(String(d.sign.name), M, y); pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(74,80,89);
+        pdf.text(`Signed electronically on ${fdateEn(String(d.sign.at||'').slice(0,10))}${d.sign.ip?' · IP '+d.sign.ip:''}`, M, y+12); pdf.setTextColor(21,23,26); y += 34;
+      } else {
+        y += 34; pdf.setDrawColor(21,23,26); pdf.setLineWidth(.6); pdf.line(M, y, M+230, y); pdf.line(M+270, y, M+400, y); y += 13;
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(74,80,89); pdf.text('Client signature', M, y); pdf.text('Date', M+270, y); pdf.setTextColor(21,23,26); y += 24;
+      }
+    }
+  }
   if (d.notes){ pdf.setFont('helvetica','normal'); pdf.setFontSize(10.5); const lines = pdf.splitTextToSize(d.notes, W-2*M); need(lines.length*14+10); pdf.text(lines, M, y); y += lines.length*14 + 16; }
   need(70); pdf.setFont('helvetica','bold'); pdf.setFontSize(11); pdf.text(st.ownerName||'', M, y); pdf.setFont('helvetica','normal'); pdf.setFontSize(10); [st.tradeName, st.phone, st.email].filter(Boolean).forEach((l,i)=>pdf.text(l, M, y+14+i*13));
   const pages = pdf.getNumberOfPages();
@@ -2619,9 +2723,30 @@ function emailHTML(d, coll){
     </td></tr></table></div>`;
 }
 
+/* Public signing page: a snapshot of the estimate is stored under a random token.
+   The server only ever hands out that snapshot, never the database. */
+function shareSnapshot(d){
+  const st = S.settings; const t = docTotals(d); const cl = S.clients[d.clientId] || {}; const cols = docCols(d, 'estimates'); const f = d.useMarkup ? 1 + N(d.markup)/100 : 1;
+  const pr = planRows(d);
+  const lines = [];
+  if (cols.qty||cols.price||cols.amount||t.disc||N(d.taxRate)){ lines.push(['Subtotal', money(t.base*f)]); if (t.disc) lines.push(['Discount'+(d.discLabel?` (${d.discLabel})`:''), '-'+money(t.disc*f)]); if (N(d.taxRate)) lines.push([`Tax (${N(d.taxRate)}%)`, money(t.tax)]); }
+  return { kind:'estimate', estimateId:d.id, number:d.number, date:d.date||'', validUntil:d.validUntil||'',
+    business:{ tradeName:st.tradeName||'', legalName:st.legalName||'', ownerName:st.ownerName||'', phone:st.phone||'', email:st.email||'', address:st.address||'', license:st.license||'' },
+    client:{ name:cl.name||'', address:fullAddr(cl).replace(/<[^>]+>/g,' ').trim() }, property:d.property||'', summary:d.summary||'',
+    cols, groups: areasOf(d).map(g=>({area:g.area, items:g.items.map(r=>({desc:r.desc, qty:N(r.qty||1), price: cols.price?money(N(r.rate)*f):'', amount: cols.amount?money(N(r.qty||1)*N(r.rate)*f):''}))})),
+    lines, total: money(t.total), totalNumber: t.total,
+    plan: pr.rows.map((r,i)=>({label:r.label||`Payment ${i+1}`, when:r.when||'', pct:r.kind==='%'?N(r.value):null, amount:money(r.amount)})),
+    notes:d.notes||'', contract: contractText(d), updatedAt:new Date().toISOString() };
+}
+async function ensureShare(d){
+  if (!window.claude?.standalone || !S.db) return '';
+  if (!d.shareToken){ const a = new Uint8Array(20); crypto.getRandomValues(a); d.shareToken = [...a].map(x=>x.toString(16).padStart(2,'0')).join(''); persist('estimates', d, true); }
+  await S.db.collection('shares').doc(d.shareToken).set(JSON.parse(JSON.stringify(shareSnapshot(d))));
+  return `${location.origin}/e/${d.shareToken}`;
+}
 /* The email the client receives: letterhead, one short message, one card with the
    amount and a single main button, signature. Tables and inline styles only (Gmail). */
-function mailLayout(d, coll, text){
+function mailLayout(d, coll, text, shareUrl){
   const isInv = coll==='invoices'; const st = S.settings; const t = docTotals(d); const cl = S.clients[d.clientId] || {};
   const F = 'font-family:Arial,Helvetica,sans-serif;'; const INK = '#0B1B33', MUTE = '#8492A8', SOFT = '#44536B', LINE = '#E3E9F1';
   const cut = text.lastIndexOf('\n\nThank you');
@@ -2653,7 +2778,8 @@ function mailLayout(d, coll, text){
     const more = (areas.length ? areas.length : items.length) - scope.length;
     card = `${label('Estimate total')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.total)}</div>
       ${scope.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px">${label('Scope of work')}<div style="${F}font-size:14px;line-height:1.9;color:${INK};margin-top:6px">${scope.map(esc).join('<br>')}${more>0?`<br><span style="color:${MUTE}">and ${more} more, see the attached PDF</span>`:''}</div></div>` : ''}
-      ${button(acc, 'Accept Estimate')}
+      ${(() => { const pr = planRows(d); return pr.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:12px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pr.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${INK}">${esc(r.label||'Payment '+(i+1))}${r.when?`<span style="color:${MUTE}"> · ${esc(r.when)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${INK};white-space:nowrap">${money(r.amount)}</td></tr>`).join('')}</table></div>` : ''; })()}
+      ${shareUrl ? button(shareUrl, contractText(d) ? 'Review and Sign' : 'Review and Accept') : button(acc, 'Accept Estimate')}
       <div style="${F}font-size:14px;margin-top:14px;text-align:center"><a href="${esc(q)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Ask a question</a> &nbsp;·&nbsp; <a href="${esc(ch)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Request changes</a></div>`;
   }
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F7FB" style="background-color:#F4F7FB"><tr><td align="center" style="padding:24px 12px">
@@ -2737,7 +2863,7 @@ function repliesCard(d){
   return `<section class="card replies"><div class="sec-h"><h3>Respuestas del cliente</h3>${unreadReplies(d).length?`<button class="btn sm ghost" data-act="replies-read">Marcar como leídas</button>`:''}</div>
     ${rs.map(r=>`<div class="reply ${r.unread?'unread':''}"><div class="reply-h"><span class="pill ${REPLY_LBL[r.type]?.[1]||''}">${REPLY_LBL[r.type]?.[0]||'Respondió'}</span><b>${esc(r.from||'')}</b><span class="muted">${fdate(r.at)}</span></div>
       ${r.snippet?`<p>${esc(r.snippet)}</p>`:''}
-      <div class="tools"><button class="btn sm" data-act="open-thread" data-id="${esc(r.threadId)}">Ver correo</button><button class="btn sm" data-act="reply" data-to="${esc(r.email||'')}" data-subj="${esc(subj(r))}" data-thread="${esc(r.threadId)}">Responder</button></div></div>`).join('')}
+      ${r.threadId?`<div class="tools"><button class="btn sm" data-act="open-thread" data-id="${esc(r.threadId)}">Ver correo</button><button class="btn sm" data-act="reply" data-to="${esc(r.email||'')}" data-subj="${esc(subj(r))}" data-thread="${esc(r.threadId)}">Responder</button></div>`:''}</div>`).join('')}
   </section>`;
 }
 
@@ -2862,9 +2988,11 @@ async function sendMail(btn){
     if (!window.jspdf){ msgEl.innerHTML='<div class="note bad">El generador de PDF no cargó. Revisa tu conexión y vuelve a intentar.</div>'; return; }
     const pdf = makePDF(doc, S.composeDoc.coll);
     const isInvMail = S.composeDoc.coll==='invoices';
-    input.htmlBody = mailLayout(doc, S.composeDoc.coll, text);
+    let shareUrl = '';
+    if (!isInvMail){ try { shareUrl = await ensureShare(doc); } catch(e){ shareUrl = ''; } }
+    input.htmlBody = mailLayout(doc, S.composeDoc.coll, text, shareUrl);
     if (isInvMail){ const l = payLinks(doc).find(x=>x.url); if (l && docTotals(doc).balance>0.004) input.body = text + `\n\nPay online (${money(docTotals(doc).balance)}): ${l.url}`; }
-    else input.body = text + `\n\nTo accept this estimate, ask a question or request changes, just reply to this email.`;
+    else input.body = text + (shareUrl ? `\n\nReview and ${contractText(doc)?'sign':'accept'} this estimate online: ${shareUrl}` : `\n\nTo accept this estimate, ask a question or request changes, just reply to this email.`);
     input.attachments = [{content: LOGO_PDF, filename:'jc-home-services-logo.jpg', mimeType:'image/jpeg', inline:true}, {content: pdf.base64, filename: pdf.name, mimeType:'application/pdf'}];
   }
   if (S.composeThread && mode==='send') input.replyThreadId = S.composeThread;
@@ -3200,6 +3328,8 @@ function vSettings(){
   <section class="card pad grid"><h3 style="font-size:16px">Facturas y estimados</h3>
     <div class="fgrid">${f('Prefijo de factura','invPrefix')}${f('Siguiente número de factura','invNext','number')}${f('Prefijo de estimado','estPrefix')}${f('Siguiente número de estimado','estNext','number')}${f('Impuesto por defecto (%)','taxRate','number')}${f('Días para pagar','payDays','number')}${f('Ganancia a sumar en estimados (%)','markup','number','15','Se aplica al total cuando eliges "Sumar % al total" en un estimado.')}${f('Mínimo para 1099-NEC ($)','threshold1099','number','2000','Pagos a un subcontratista desde este monto aparecen marcados en Reportes. Confírmalo con tu contador.')}
     <label class="f full"><span>Notas por defecto en estimados</span><textarea class="in" data-set="estTerms" rows="3">${esc(st.estTerms)}</textarea></label>
+    <label class="f full"><span>Contrato que firma el cliente al aceptar un estimado (en inglés)</span><textarea class="in" data-set="contractTerms" rows="10" placeholder="Escribe aquí los términos de tu contrato. Si lo dejas vacío, el cliente acepta el estimado sin contrato.">${esc(st.contractTerms||'')}</textarea>
+      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar un texto base para empezar</button>`}</small></label>
     <label class="f full"><span>Notas por defecto en facturas</span><textarea class="in" data-set="invTerms" rows="3">${esc(st.invTerms)}</textarea></label></div></section>
   <section class="card pad grid"><h3 style="font-size:16px">Exportar</h3><span class="muted">Descarga todos tus proyectos en un archivo CSV para tu contador o para Excel.</span><div><button class="btn" data-act="export">${I.dl} Exportar proyectos (CSV)</button></div></section>`;
 }

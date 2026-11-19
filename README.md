@@ -10,6 +10,7 @@ One page (`public/index.html`) plus a few serverless functions, deployed on Verc
 | `api/ai.js` | Builds estimates and invoices from text, voice, photos and PDFs (Claude API) |
 | `api/gmail.js`, `api/google.js` | Sends and reads email through the owner's Gmail (Google OAuth) |
 | `api/commas.js` | Creates a payment link per invoice and checks whether it was paid (Commas) |
+| `api/sign.js`, `public/e.html` | Public page where a client reviews an estimate, reads the agreement and signs |
 | `api/blob.js` | Serves private files (receipts, photos) through short-lived signed links |
 | `api/setup.js`, `api/signup.js` | First-run setup: create the tables and the accounts |
 | `supabase/schema.sql` | Database tables, access rules and the private file bucket |

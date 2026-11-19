@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Estimate</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<style>
+  :root{--ink:#0B1B33;--ink-2:#44536B;--ink-3:#8492A8;--line:#E3E9F1;--soft:#F5F8FC;--accent:#1F5EFF;--ok:#1e7a4c;--bad:#b4372f}
+  *{box-sizing:border-box}
+  body{margin:0;background:#F4F7FB;color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+  .wrap{max-width:780px;margin:0 auto;padding:24px 14px 60px}
+  .sheet{background:#fff;border:1px solid var(--line);border-top:4px solid var(--ink);border-radius:12px;box-shadow:0 12px 40px rgba(11,27,51,.07);overflow:hidden}
+  .pad{padding:28px 36px}
+  .lh{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+  .lh img{width:150px;height:auto;display:block}
+  .biz{margin-top:12px;font-size:13px;color:var(--ink-2);line-height:1.5}
+  .biz b{color:var(--ink);font-size:14px}
+  .ttl{text-align:right}
+  .ttl h1{margin:0;font-size:28px;font-weight:300;letter-spacing:.3em;margin-right:-.3em;line-height:1}
+  .ttl div{font-size:13px;color:var(--ink-3);letter-spacing:.08em;margin-top:8px}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .sec{border-top:1px solid var(--line)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .two b{display:block;font-size:16px;margin-top:4px}
+  .two span{color:var(--ink-2);font-size:14px;display:block}
+  h2{font-size:15px;font-weight:600;margin:18px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+  h2:first-of-type{margin-top:8px}
+  ul{margin:0;padding-left:18px}
+  li{margin:4px 0}
+  table{width:100%;border-collapse:collapse}
+  td,th{padding:8px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+  th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+  .n{text-align:right;white-space:nowrap;padding-left:14px}
+  .tot{display:flex;flex-direction:column;align-items:flex-end;gap:6px;margin-top:18px;color:var(--ink-2)}
+  .tot div{display:flex;justify-content:space-between;gap:30px;min-width:260px}
+  .tot .big{border-top:2px solid var(--ink);padding-top:12px;margin-top:6px;font-size:22px;font-weight:600;color:var(--ink)}
+  .sched td:first-child{width:26px;color:var(--ink-3)}
+  .sched small{display:block;color:var(--ink-2);font-size:13px}
+  .terms{white-space:pre-wrap;font-size:14px;color:var(--ink);margin-top:8px}
+  .notes{white-space:pre-wrap;color:var(--ink-2);font-size:14px}
+  .signbox{background:var(--soft)}
+  label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink-2);font-weight:500}
+  input[type=text]{font:inherit;font-size:16px;padding:12px 14px;border:1px solid #C9D3E0;border-radius:8px;background:#fff;color:var(--ink);width:100%}
+  input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .pad-wrap{position:relative;margin-top:6px}
+  canvas{width:100%;height:170px;background:#fff;border:1px solid #C9D3E0;border-radius:8px;touch-action:none;display:block;cursor:crosshair}
+  .pad-hint{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#B7C1CF;font-size:15px;pointer-events:none}
+  .pad-line{position:absolute;left:24px;right:24px;bottom:38px;border-bottom:1px solid #D5DCE6;pointer-events:none}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+  .link{background:none;border:0;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0}
+  .agree{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:14px;color:var(--ink)}
+  .agree input{width:20px;height:20px;margin-top:1px;flex:none}
+  .btn{display:block;width:100%;margin-top:16px;background:var(--ink);color:#fff;border:0;border-radius:8px;padding:16px 20px;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.55;cursor:default}
+  .msg{margin-top:12px;font-size:14px;color:var(--bad);min-height:20px}
+  .other{margin-top:16px;text-align:center;font-size:14px}
+  .other a{color:var(--accent);font-weight:600;text-decoration:none}
+  .done{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .done img{height:70px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+  .ok{display:inline-flex;align-items:center;gap:8px;background:#dff3e8;color:var(--ok);font-weight:700;border-radius:99px;padding:6px 14px;font-size:14px}
+  .foot{padding:14px 36px;background:var(--soft);border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+  .center{text-align:center;padding:70px 20px;color:var(--ink-2)}
+  @media (max-width:640px){.pad{padding:22px 20px}.two{grid-template-columns:1fr;gap:16px}.ttl{text-align:left}.ttl h1{font-size:24px}.lh img{width:124px}.foot{padding:14px 20px}.tot div{min-width:0;width:100%}}
+  @media print{body{background:#fff}.wrap{padding:0;max-width:none}.sheet{box-shadow:none;border:0;border-radius:0}.noprint{display:none!important}.signbox{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="sheet" id="app"><div class="center">Loading…</div></div></div>
+<script>
+(() => {
+  const token = (location.pathname.match(/\/e\/([a-f0-9]{32,64})/) || [])[1] || new URLSearchParams(location.search).get('t') || '';
+  const app = document.getElementById('app');
+  const el = (tag, attrs = {}, ...kids) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v); } kids.flat().forEach(c => c != null && n.append(c)); return n; };
+  const dateEn = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); };
+  const dayEn = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''; };
+  const fail = t => { app.replaceChildren(el('div', { class: 'center' }, el('h2', { text: t, style: 'border:0' }))); };
+  if (!token) return fail('This link is not valid.');
+
+  let S = null;
+  fetch('/api/sign?token=' + token).then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => { S = d; document.title = `Estimate ${d.number} · ${d.business.tradeName}`; render(); }).catch(() => fail('This estimate is not available. Please contact us.'));
+
+  function render() {
+    const b = S.business, hasCols = S.cols && (S.cols.qty || S.cols.price || S.cols.amount);
+    const head = el('div', { class: 'pad lh' },
+      el('div', {}, el('img', { src: '/logo.jpg', alt: b.tradeName }), el('div', { class: 'biz' }, el('b', { text: b.tradeName }), el('div', { text: b.ownerName }), b.address ? el('div', { text: b.address }) : null, el('div', { text: [b.phone, b.email].filter(Boolean).join('  ·  ') }), b.license ? el('div', { text: 'License ' + b.license }) : null)),
+      el('div', { class: 'ttl' }, el('h1', { text: 'ESTIMATE' }), el('div', { text: S.number }), S.date ? el('div', { text: dayEn(S.date) }) : null));
+    const who = el('div', { class: 'pad sec two' },
+      el('div', {}, el('div', { class: 'lbl', text: 'Prepared for' }), el('b', { text: S.client.name || '' }), S.client.address ? el('span', { text: S.client.address }) : null),
+      el('div', {}, el('div', { class: 'lbl', text: 'Property' }), el('b', { text: S.property || '—' }), S.summary ? el('span', { text: S.summary }) : null));
+
+    const scope = el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Scope of work' }));
+    if (hasCols) {
+      const t = el('table', { style: 'margin-top:8px' });
+      t.append(el('tr', {}, el('th', { text: 'Description' }), S.cols.qty ? el('th', { class: 'n', text: 'Qty' }) : null, S.cols.price ? el('th', { class: 'n', text: 'Price' }) : null, S.cols.amount ? el('th', { class: 'n', text: 'Amount' }) : null));
+      S.groups.forEach(g => { if (S.groups.length > 1 || g.area !== 'Scope of Work') t.append(el('tr', {}, el('td', { colspan: 4, style: 'font-weight:700;border-bottom:0;padding-top:14px', text: g.area })));
+        g.items.forEach(i => t.append(el('tr', {}, el('td', { text: i.desc }), S.cols.qty ? el('td', { class: 'n', text: String(i.qty) }) : null, S.cols.price ? el('td', { class: 'n', text: i.price }) : null, S.cols.amount ? el('td', { class: 'n', text: i.amount }) : null))); });
+      scope.append(t);
+    } else S.groups.forEach(g => scope.append(el('h2', { text: g.area }), el('ul', {}, g.items.map(i => el('li', { text: i.desc + (i.qty > 1 ? ` (${i.qty})` : '') })))));
+    const tot = el('div', { class: 'tot' }, (S.lines || []).map(([a, v]) => el('div', {}, el('span', { text: a }), el('span', { text: v }))), el('div', { class: 'big' }, el('span', { text: 'Total' }), el('span', { text: S.total })));
+    scope.append(tot);
+
+    const parts = [head, who, scope];
+    if (S.plan && S.plan.length) {
+      const t = el('table', { class: 'sched', style: 'margin-top:8px' });
+      S.plan.forEach((r, i) => t.append(el('tr', {}, el('td', { text: (i + 1) + '.' }), el('td', {}, el('b', { text: r.label }), r.when ? el('small', { text: r.when }) : null), el('td', { class: 'n', style: 'color:#44536B', text: r.pct != null ? r.pct + '%' : '' }), el('td', { class: 'n' }, el('b', { text: r.amount })))));
+      parts.push(el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Payment schedule' }), t));
+    }
+    if (S.notes) parts.push(el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Notes' }), el('div', { class: 'notes', style: 'margin-top:6px', text: S.notes })));
+    if (S.contract) parts.push(el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Agreement' }), el('div', { class: 'terms', text: S.contract })));
+    parts.push(S.signed ? signedBlock() : signBlock());
+    parts.push(el('div', { class: 'foot', text: `${b.tradeName}${b.legalName && b.legalName !== b.tradeName ? ' · ' + b.legalName : ''}` }));
+    app.replaceChildren(...parts);
+    if (!S.signed) setupPad();
+  }
+
+  function signedBlock() {
+    return el('div', { class: 'pad sec signbox' },
+      el('div', { class: 'ok', text: '✓  Accepted and signed' }),
+      el('div', { class: 'done', style: 'margin-top:14px' }, S.signed.image ? el('img', { src: S.signed.image, alt: 'Signature' }) : null,
+        el('div', {}, el('b', { text: S.signed.name }), el('div', { style: 'color:#44536B;font-size:14px', text: 'Signed electronically on ' + dateEn(S.signed.at) }))),
+      el('p', { style: 'color:#44536B;font-size:14px;margin:14px 0 0', text: `Thank you. ${S.business.tradeName} has been notified and will contact you about the next steps.` }),
+      el('button', { class: 'link noprint', style: 'margin-top:8px', text: 'Print or save a copy', onclick: () => window.print() }));
+  }
+
+  let dirty = false, canvas, ctx;
+  function signBlock() {
+    const what = S.contract ? 'this estimate and the agreement above' : 'this estimate';
+    const mail = (subj, body) => `mailto:${S.business.email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+    return el('div', { class: 'pad sec signbox noprint', id: 'signbox' },
+      el('div', { class: 'lbl', text: S.contract ? 'Accept and sign' : 'Accept this estimate' }),
+      el('label', { class: 'f', style: 'margin-top:12px' }, 'Your full name', el('input', { type: 'text', id: 'nm', autocomplete: 'name', value: '' })),
+      el('div', { class: 'f', style: 'margin-top:14px;font-size:13px;color:#44536B;font-weight:500' }, 'Your signature'),
+      el('div', { class: 'pad-wrap' }, el('canvas', { id: 'pad' }), el('div', { class: 'pad-line' }), el('div', { class: 'pad-hint', id: 'hint', text: 'Sign here with your finger or mouse' })),
+      el('div', { class: 'row' }, el('span', { style: 'font-size:12px;color:#8492A8', text: dateEn(new Date().toISOString()) }), el('button', { class: 'link', type: 'button', text: 'Clear', onclick: clearPad })),
+      el('label', { class: 'agree' }, el('input', { type: 'checkbox', id: 'ag' }), el('span', { text: `I have read and I accept ${what}, for a total of ${S.total}.` })),
+      el('button', { class: 'btn', id: 'go', type: 'button', text: S.contract ? 'Accept and Sign' : 'Accept Estimate', onclick: submit }),
+      el('div', { class: 'msg', id: 'msg' }),
+      S.business.email ? el('div', { class: 'other' }, el('a', { href: mail(`Question - Estimate ${S.number} - ${S.business.tradeName}`, `Hi ${(S.business.ownerName || '').split(' ')[0]},\n\nI have a question about estimate ${S.number}:\n\n`), text: 'Ask a question' }), '  ·  ', el('a', { href: mail(`Changes requested - Estimate ${S.number} - ${S.business.tradeName}`, `Hi ${(S.business.ownerName || '').split(' ')[0]},\n\nI would like the following changes to estimate ${S.number}:\n\n`), text: 'Request changes' })) : null);
+  }
+  function setupPad() {
+    canvas = document.getElementById('pad'); const r = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr); ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0B1B33';
+    let down = false, last = null;
+    const pos = e => { const b = canvas.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+    canvas.addEventListener('pointerdown', e => { down = true; last = pos(e); canvas.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.arc(last[0], last[1], 1.2, 0, 7); ctx.fillStyle = '#0B1B33'; ctx.fill(); dirty = true; document.getElementById('hint').style.display = 'none'; e.preventDefault(); });
+    canvas.addEventListener('pointermove', e => { if (!down) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); last = p; e.preventDefault(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => canvas.addEventListener(t, () => { down = false; }));
+  }
+  function clearPad() { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.restore(); dirty = false; document.getElementById('hint').style.display = ''; }
+  function exportSig() { const out = document.createElement('canvas'); out.width = 600; out.height = Math.round(600 * canvas.height / canvas.width); out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height); return out.toDataURL('image/png'); }
+  async function submit() {
+    const msg = document.getElementById('msg'), go = document.getElementById('go'); const name = document.getElementById('nm').value.trim();
+    msg.textContent = '';
+    if (name.length < 2) { msg.textContent = 'Please type your full name.'; document.getElementById('nm').focus(); return; }
+    if (!dirty) { msg.textContent = 'Please draw your signature in the box.'; return; }
+    if (!document.getElementById('ag').checked) { msg.textContent = 'Please check the box to confirm that you accept.'; return; }
+    go.disabled = true; go.textContent = 'Saving…';
+    try {
+      const r = await fetch('/api/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, name, signature: exportSig(), agree: true }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok || r.status === 409) { S.signed = j.signed; render(); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); return; }
+      msg.textContent = j.message || 'Could not save. Please try again.';
+    } catch (_) { msg.textContent = 'No connection. Please try again.'; }
+    go.disabled = false; go.textContent = S.contract ? 'Accept and Sign' : 'Accept Estimate';
+  }
+})();
+</script>
+</body>
+</html>
