@@ -505,7 +505,7 @@ details.menu > summary::-webkit-details-marker{display:none}
 .nav-more > summary:hover{color:var(--ink)}
 .nav-more > summary .chev svg{width:14px;height:14px;transition:transform .15s}
 .nav-more[open] > summary .chev svg{transform:rotate(90deg)}
-.nav-more > button{font-size:14px}
+.nav-more > button{font-size:14px;width:100%}
 .more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .more-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:14px 12px;font:inherit;font-weight:500;color:var(--ink);cursor:pointer;text-align:left}
 .more-item svg{width:20px;height:20px;color:var(--ink-3);flex:none}
@@ -699,6 +699,10 @@ button.lrow:hover{background:var(--surface-2)}
 .plan-status.ok{color:var(--ok,#1e7a4c)}
 .plan-status.warn{color:var(--warn)}
 .plan-contract{font-size:14px;color:var(--ink-2);padding-top:4px}
+.mail-card{overflow:hidden}
+.mail-card .search{margin-bottom:8px;min-width:min(280px,100%)}
+.mail-card .search .in{width:100%}
+.mail-card .thread:last-child{border-bottom:0}
 .apv{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .apv > div{display:flex;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
 .apv > div:last-child{border-bottom:0}
@@ -3132,16 +3136,17 @@ async function sendMail(btn){
   }
 }
 function vEmail(){
-  const chips = list('clients').filter(c=>c.email).slice(0,12);
+  const q = S.mailQ==='in:inbox' || S.mailQ==='in:sent' ? '' : S.mailQ;
   return `
-  <div class="head"><div><h1>Email</h1><p>Tu Gmail, conectado. Busca correos de clientes y envía estimados y facturas.</p></div>
+  <div class="head"><div><h1>Email</h1></div>
     <div class="tools"><button class="btn" data-act="mail-refresh">${I.refresh} Actualizar</button><button class="btn primary" data-act="compose">${I.plus} Nuevo email</button></div></div>
-  <div class="tools">
-    <label class="search" style="flex:1;min-width:220px"><span hidden>Buscar</span>${I.search}<input class="in plain" id="mailq" style="width:100%" placeholder="Buscar en Gmail (ej. from:cliente@email.com)" value="${esc(S.mailQ==='in:inbox'?'':S.mailQ)}" onkeydown="if(event.key==='Enter'){S.mailQ=this.value.trim()||'in:inbox';renderView();}"></label>
-    <button class="btn" data-act="mail-search">Buscar</button>
-  </div>
-  <div class="chips"><button class="chip" data-act="mail-client-filter" data-q="in:inbox" aria-pressed="${S.mailQ==='in:inbox'}">Bandeja de entrada</button><button class="chip" data-act="mail-client-filter" data-q="in:sent" aria-pressed="${S.mailQ==='in:sent'}">Enviados</button>${chips.map(c=>{const q=`from:${c.email} OR to:${c.email}`;return `<button class="chip" data-act="mail-client-filter" data-q="${esc(q)}" aria-pressed="${S.mailQ===q}">${esc(c.name)}</button>`}).join('')}</div>
-  <section class="card mail" id="mailbox"><div class="empty"><span>${S.mcp===null?(window.claude?.standalone?'El email todavía no está configurado en esta Kuadra (falta Google en Vercel).':'El email solo funciona cuando abres esta app dentro de claude.ai con Gmail conectado.'):'Cargando correos…'}</span></div></section>`;
+  <section class="card mail-card">
+    <div class="tabbar-in">
+      <div class="tabs" role="tablist"><button role="tab" aria-selected="${S.mailQ==='in:inbox'}" data-act="mail-client-filter" data-q="in:inbox">Recibidos</button><button role="tab" aria-selected="${S.mailQ==='in:sent'}" data-act="mail-client-filter" data-q="in:sent">Enviados</button></div>
+      <label class="search"><span hidden>Buscar</span>${I.search}<input class="in plain" id="mailq" placeholder="Buscar en tu correo" value="${esc(q)}" onkeydown="if(event.key==='Enter'){S.mailQ=this.value.trim()||'in:inbox';renderView();}"></label>
+    </div>
+    <div class="mail" id="mailbox"><div class="empty"><span>${S.mcp===null?(window.claude?.standalone?'El email todavía no está configurado en esta Kuadra.':'El email solo funciona cuando abres esta app dentro de claude.ai con Gmail conectado.'):'Cargando correos…'}</span></div></div>
+  </section>`;
 }
 let mailUnsub = null, mailKey = '';
 function loadMail(force){
