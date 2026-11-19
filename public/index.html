@@ -609,6 +609,84 @@ button.lrow:hover{background:var(--surface-2)}
   .mini{flex:1}.mini .in{min-width:0;width:100%}
   .tabbar button{flex:1 1 0}
 }
+/* ===== The estimate / invoice editor reads as the document itself ===== */
+.docname-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--ink-3)}
+.docname-row > span{white-space:nowrap}
+.docname-row .in{flex:1;min-width:200px;max-width:520px;background:transparent;border-color:transparent;border-bottom-color:var(--line);border-radius:0;padding:6px 2px;font-size:15px;color:var(--ink)}
+.docname-row .in:focus{outline:0;border-bottom-color:var(--accent)}
+.docname-row .linkbtn{margin-left:auto;font-weight:500;font-size:13px}
+.dp-headline h1{font-size:26px}
+.doc-paper{
+  /* a sheet of paper: always light, whatever the app theme */
+  --ink:#0B1B33; --ink-2:#44536B; --ink-3:#8492A8; --surface:#ffffff; --surface-2:#F5F8FC; --line:#E3E9F1; --paper:#F4F7FB;
+  --accent:#1F5EFF; --accent-soft:#EAF0FF; --edit:#ffffff; --edit-line:#E3E9F1; --logo-filter:none;
+  --warn:#9a6200; --warn-soft:#fdf3dc; --bad:#b4372f; --bad-soft:#fbe3e1;
+  color:var(--ink); color-scheme:light; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden;
+  box-shadow:0 1px 2px rgba(11,27,51,.04), 0 12px 40px rgba(11,27,51,.07); border-top:4px solid #0B1B33;
+}
+.lh{display:flex;justify-content:space-between;align-items:flex-start;gap:28px;padding:36px 40px 28px;flex-wrap:wrap}
+.lh-l{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lh-logo{width:168px;height:auto;display:block}
+.lh-biz{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink-2);line-height:1.5}
+.lh-biz b{color:var(--ink);font-size:14px;font-weight:600;letter-spacing:.01em}
+.lh-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:1;min-width:240px;max-width:400px;margin-left:auto}
+.lh-title{font-family:var(--f-display);font-size:34px;font-weight:300;letter-spacing:.3em;margin-right:-.3em;color:var(--ink);line-height:1}
+.lh-no{font-size:13px;color:var(--ink-3);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.doc-paper .in.plain.lh-sum{margin-top:10px;text-align:right;border-color:transparent;border-bottom-color:var(--line);border-radius:0;padding:6px 2px;background:transparent;font-size:14px}
+.doc-paper .in.plain.lh-sum:focus{outline:0;border-bottom-color:var(--accent)}
+.doc-paper .dp-head{padding:26px 40px 30px;gap:40px;border-top:1px solid var(--line)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.doc-paper .dp-left{gap:10px;max-width:440px}
+.doc-paper .dp-left .f > span,.doc-paper .dp-notes .label{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.doc-paper .dp-left .f{margin-top:8px}
+.doc-paper .custbox{border:0;padding:0;min-height:0;gap:2px;font-size:14px;line-height:1.5}
+.doc-paper .custbox.empty{border:1px dashed #C9D3E0;border-radius:10px;padding:22px;justify-content:center;font-size:15px;font-weight:600;gap:8px;min-height:92px;background:var(--surface-2)}
+.doc-paper .custbox.empty svg{width:18px;height:18px;color:var(--accent)}
+.doc-paper .custlinks{flex-direction:row;gap:16px;margin-top:6px}
+.doc-paper .custlinks .linkbtn{font-size:13px;font-weight:500}
+.doc-paper .dp-meta{gap:8px;max-width:400px;margin-left:auto;width:100%}
+.doc-paper .mrow{grid-template-columns:minmax(0,1fr) minmax(0,190px);gap:16px;align-items:center}
+.doc-paper .mrow > span{font-weight:500;font-size:13px;color:var(--ink-2);padding-top:0}
+.doc-paper .in.plain{border-color:var(--line);background:#fff;border-radius:8px}
+.doc-paper .in.plain:hover{border-color:#C9D3E0}
+.doc-paper .dp-cols{padding:0 40px;display:flex;justify-content:flex-end;margin-bottom:6px}
+.doc-paper .editcols{background:none;padding:4px 0;font-weight:500;font-size:13px;color:var(--ink-3);border-radius:0}
+.doc-paper .editcols:hover{color:var(--accent)}
+.doc-paper .dp-cols .menu-list{left:auto;right:0}
+.doc-paper .dp-irow{padding:10px 40px;border-bottom:1px solid var(--line)}
+.doc-paper .dp-irow.hd{background:none;border-top:2px solid #0B1B33;border-bottom:1px solid var(--line);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);padding-block:12px;align-items:end}
+.doc-paper .eyehd{flex-direction:row-reverse;align-items:center;gap:6px;justify-content:flex-start}
+.doc-paper .eyehd .eye svg{width:15px;height:15px}
+.doc-paper .dp-irow .in.plain{border-color:transparent;background:transparent;padding-left:0}
+.doc-paper .dp-irow .in.plain.n{padding-left:10px;padding-right:0}
+.doc-paper .dp-irow .in.plain:hover{border-bottom-color:var(--line)}
+.doc-paper .dp-irow .in.plain:focus{background:#fff;border-color:var(--line);padding-left:10px;padding-right:10px}
+.doc-paper .dp-irow .in.needs{border-color:var(--bad);background:var(--bad-soft);padding-left:10px;padding-right:10px}
+.doc-paper .hidnote{padding:10px 40px;font-size:12.5px}
+.doc-paper .dp-add{padding:14px 40px;border-bottom:0}
+.doc-paper .dp-tot{padding:18px 40px 22px;border-bottom:0;gap:8px;color:var(--ink-2);font-size:14px}
+.doc-paper .dtr b{color:var(--ink)}
+.doc-paper .dtr.total{border-top:2px solid #0B1B33;margin-top:10px;padding-top:14px;font-size:20px;font-weight:600;color:var(--ink);min-width:min(420px,100%);font-family:var(--f-display)}
+.doc-paper .dtr.total .cur{border:0;padding:0;font-size:12px;letter-spacing:.1em;color:var(--ink-3)}
+.doc-paper .dp-dep{padding:0 40px 18px;border-bottom:0}
+.doc-paper .dp-notes{padding:22px 40px 36px;border-top:1px solid var(--line);background:var(--surface-2)}
+.doc-paper .dp-notes textarea{margin-top:6px}
+@media (max-width:760px){
+  .lh{padding:24px 20px 20px;gap:18px}
+  .lh-r{align-items:flex-start;margin-left:0;max-width:none}
+  .lh-title{font-size:26px}
+  .doc-paper .in.plain.lh-sum{text-align:left;width:100%}
+  .lh-logo{width:132px}
+  .doc-paper .dp-head{padding:20px;gap:22px}
+  .doc-paper .dp-meta{margin-left:0;max-width:none}
+  .doc-paper .dp-cols,.doc-paper .dp-add,.doc-paper .hidnote{padding-left:20px;padding-right:20px}
+  .doc-paper .dp-irow{padding:12px 20px}
+  .doc-paper .dp-irow .in.plain{border-color:var(--line);background:#fff;padding-left:10px;padding-right:10px}
+  .doc-paper .dp-irow .in.plain.n{padding-left:10px;padding-right:10px}
+  .doc-paper .dp-tot,.doc-paper .dp-dep{padding-left:20px;padding-right:20px}
+  .doc-paper .dp-notes{padding:20px}
+  .docname-row .linkbtn{margin-left:0}
+}
 /* icons inside text never grow past text size */
 :where(.note,.hidnote,.banner,.toast,.pill,small,p,label,.muted) > svg{width:16px;height:16px;flex:none;vertical-align:-3px;display:inline-block}
 .note.bad{background:var(--bad-soft);color:var(--bad)}
@@ -2191,11 +2269,11 @@ function vDocPage(){
 }
 function custBox(d, isInv){
   const cl = S.clients[d.clientId];
-  if (!cl) return `<button class="custbox empty" data-act="pick-client">${I.users}<span>Agregar cliente</span></button>`;
+  if (!cl) return `<div class="lbl">${isInv?'Bill to':'Prepared for'}</div><button class="custbox empty" data-act="pick-client">${I.plus}<span>Agregar cliente</span></button>`;
   const contact = [cl.contactFirst, cl.contactLast].filter(Boolean).join(' ');
-  return `<div class="custbox"><div class="label">${isInv?'Facturar a':'Preparado para'}</div>
-    <b style="font-size:16px">${esc(cl.name)}</b>${contact?`<span>${esc(contact)}</span>`:''}${fullAddr(cl)?`<span class="muted">${fullAddr(cl)}</span>`:''}${cl.phone?`<span class="muted">${esc(cl.phone)}</span>`:''}${cl.email?`<span>${esc(cl.email)}</span>`:`<span class="pill warn" style="align-self:flex-start">Sin email</span>`}
-    <div class="custlinks"><button class="linkbtn" data-act="edit-client" data-id="${cl.id}">Editar a ${esc(cl.name)}</button><button class="linkbtn" data-act="pick-client">Elegir otro cliente</button></div></div>`;
+  return `<div class="lbl">${isInv?'Bill to':'Prepared for'}</div><div class="custbox">
+    <b style="font-size:17px">${esc(cl.name)}</b>${contact?`<span>${esc(contact)}</span>`:''}${fullAddr(cl)?`<span class="muted">${fullAddr(cl)}</span>`:''}${cl.phone?`<span class="muted">${esc(cl.phone)}</span>`:''}${cl.email?`<span>${esc(cl.email)}</span>`:`<span class="pill warn" style="align-self:flex-start">Sin email</span>`}
+    <div class="custlinks"><button class="linkbtn" data-act="edit-client" data-id="${cl.id}">Editar</button><button class="linkbtn" data-act="pick-client">Cambiar cliente</button></div></div>`;
 }
 function metaRow(label, inner, hint=''){ return `<div class="mrow"><span>${label}</span><div>${inner}${hint?`<small class="muted">${hint}</small>`:''}</div></div>`; }
 function mIn(k, v, type='text'){ return `<input class="in plain" data-k="${k}" type="${type}" value="${esc(v??'')}">`; }
@@ -2217,23 +2295,21 @@ function docEdit(d, coll, isInv){
       <div class="tools"><button class="btn outline" data-act="preview">Vista previa</button>
         <div class="split"><button class="btn primary" data-act="doc-save">Guardar y continuar</button><details class="menu"><summary class="btn primary caret" aria-label="Más opciones de guardar">▾</summary><div class="menu-list"><button data-act="doc-save-send">Guardar y enviar</button><button data-act="doc-cancel">Descartar cambios</button></div></details></div></div></div>
 
-    <label class="f docname-f"><span>Nombre (solo para ti; el cliente no lo ve)</span><input class="in plain" data-k="name" autocomplete="off" placeholder="${esc(autoDocName(d) || 'Se genera solo con el trabajo y la dirección')}" value="${esc(d.name||'')}"><small class="muted">Si lo dejas vacío, Kuadra lo genera solo.</small></label>
-
-    <details class="biz-acc" ${D.bizOpen?'open':''} data-acc>
-      <summary><span>Datos del negocio, título, resumen y logo</span><span class="chev">${I.right}</span></summary>
-      <div class="biz-in">
-        <img src="data:image/jpeg;base64,${LOGO_PDF}" alt="Logo de JC Home Services" style="width:130px">
-        <div class="biz-r">
-          <div class="biz-title">${isInv?'INVOICE':'ESTIMATE'}</div>
-          <input class="in plain" data-k="summary" placeholder="Resumen (ej. número de proyecto, nombre o descripción)" value="${esc(d.summary||'')}">
-          <div class="muted" style="text-align:right;font-size:13px"><b style="color:var(--ink)">${esc(st.tradeName)}</b><br>${esc(st.ownerName)}${st.address?'<br>'+esc(st.address):''}<br>${esc(st.phone)}<br>${esc(st.email)}</div>
-          <button class="linkbtn" style="align-self:flex-end" data-go="ajustes">Editar datos del negocio</button>
-        </div>
-      </div>
-    </details>
+    <label class="docname-row"><span>Nombre interno</span><input class="in plain" data-k="name" autocomplete="off" placeholder="${esc(autoDocName(d) || 'Se genera solo con el trabajo y la dirección')}" value="${esc(d.name||'')}"><button type="button" class="linkbtn" data-go="ajustes">Datos del negocio</button></label>
 
     ${aiBox(d, coll)}
-    <section class="dp-card">
+    <section class="dp-card doc-paper">
+      <header class="lh">
+        <div class="lh-l">
+          <img class="lh-logo" src="data:image/jpeg;base64,${LOGO_PDF}" alt="${esc(st.tradeName)}">
+          <div class="lh-biz"><b>${esc(st.tradeName)}</b>${st.ownerName?`<span>${esc(st.ownerName)}</span>`:''}${st.address?`<span>${esc(st.address)}</span>`:''}<span>${esc([st.phone, st.email].filter(Boolean).join('  ·  '))}</span></div>
+        </div>
+        <div class="lh-r">
+          <div class="lh-title">${isInv?'INVOICE':'ESTIMATE'}</div>
+          <div class="lh-no">${esc(d.number||'')}</div>
+          <input class="in plain lh-sum" data-k="summary" placeholder="Resumen del trabajo (opcional)" value="${esc(d.summary||'')}">
+        </div>
+      </header>
       <div class="dp-head">
         <div class="dp-left">
           ${custBox(d, isInv)}
@@ -2251,7 +2327,7 @@ function docEdit(d, coll, isInv){
       </div>
 
       <div class="dp-cols">
-        <details class="menu"><summary class="editcols">✎ Editar columnas</summary><div class="menu-list" style="min-width:260px">
+        <details class="menu"><summary class="editcols">Columnas</summary><div class="menu-list" style="min-width:260px">
           <label class="chk"><input type="checkbox" data-act="toggle-area" ${showArea?'checked':''}> Mostrar columna "Área"</label>
           <label class="chk"><input type="checkbox" data-act="toggle-col" data-col="qty" ${cols.qty?'checked':''}> Mostrar cantidad al cliente</label>
           <label class="chk"><input type="checkbox" data-act="toggle-col" data-col="price" ${cols.price?'checked':''}> Mostrar precio al cliente</label>
@@ -2259,7 +2335,7 @@ function docEdit(d, coll, isInv){
         </div></details>
       </div>
       <div class="dp-items ${showArea?'with-area':''}">
-        <div class="dp-irow hd"><span>Items</span>${showArea?'<span>Área</span>':''}${eyeHd('qty','Cantidad',cols.qty)}${eyeHd('price','Precio',cols.price)}${eyeHd('amount','Monto',cols.amount)}<span></span></div>
+        <div class="dp-irow hd"><span>Descripción</span>${showArea?'<span>Área</span>':''}${eyeHd('qty','Cantidad',cols.qty)}${eyeHd('price','Precio',cols.price)}${eyeHd('amount','Monto',cols.amount)}<span></span></div>
         ${(d.items||[]).map((r,i)=>`<div class="dp-irow">${li(i,'desc',r.desc,'text','Escribe para buscar en tus productos…')}${showArea?li(i,'area',r.area,'text','Ej. Kitchen'):''}${li(i,'qty',r.qty,'qty','1')}${li(i,'rate',r.rate,'money','0.00')}<b class="num r" data-line="${i}">${fmt(N(r.qty||1)*N(r.rate),1)}</b><button class="icon-btn" data-act="row-del" data-list="items" data-i="${i}" aria-label="Quitar item">${I.trash}</button></div>`).join('')}
         ${!cols.qty||!cols.price||!cols.amount?`<div class="hidnote">${I.eyeoff} El cliente no verá: ${[!cols.qty&&'cantidad',!cols.price&&'precio',!cols.amount&&'monto'].filter(Boolean).join(', ')}. ${!cols.qty&&!cols.price&&!cols.amount?'Verá los trabajos agrupados por área y el total.':''} Toca el ojito para cambiarlo.</div>`:''}
         <div class="dp-add"><button class="linkbtn" data-act="row-add" data-list="items">${I.plus} Agregar item</button><button class="linkbtn muted-l" data-act="save-items">Guardar items en mis productos</button></div>
@@ -2272,7 +2348,7 @@ function docEdit(d, coll, isInv){
         ${d.showDisc ? totRow('<span>Descuento</span>', '-'+fmt(t.disc,1), 'disc', `<input class="in plain sm" data-k="discLabel" placeholder="Motivo (opcional)" value="${esc(d.discLabel??'')}" style="width:150px"><input class="in plain n sm" data-k="discount" inputmode="decimal" placeholder="0" value="${esc(d.discount??'')}"><select class="in plain sm" data-k="discType"><option value="$" ${d.discType!=='%'?'selected':''}>$</option><option value="%" ${d.discType==='%'?'selected':''}>%</option></select>`, 'rm-disc') : `<div class="dtr link"><button class="linkbtn" data-act="add-disc">${I.plus} Agregar descuento</button></div>`}
         ${!isInv ? (d.useMarkup ? totRow(`<span>Ganancia de la empresa (${N(d.markup)||15}%)</span>`, fmt(t.mk,1), 'mk', '', 'rm-markup') : `<div class="dtr link"><button class="linkbtn" data-act="add-markup">${I.plus} Sumar ${N(d.markup)||N(S.settings.markup)||15}% de ganancia</button></div>`) : ''}
         ${d.showTax || N(d.taxRate) ? totRow('<span>Impuesto</span>', fmt(t.tax,1), 'tax', `<input class="in plain n sm" data-k="taxRate" inputmode="decimal" placeholder="0" value="${esc(d.taxRate??'')}"><span class="muted">%</span>`, 'rm-tax') : `<div class="dtr link"><button class="linkbtn" data-act="add-tax">${I.plus} Agregar impuesto</button></div>`}
-        <div class="dtr total"><span>Total</span><span class="dtr-x"><span class="cur">USD ($) - Dólar estadounidense</span></span><b class="num" data-tot="total">${fmt(t.total,1)}</b><span style="width:28px"></span></div>
+        <div class="dtr total"><span>Total</span><span class="dtr-x"><span class="cur">USD</span></span><b class="num" data-tot="total">${fmt(t.total,1)}</b><span style="width:28px"></span></div>
       </div>
       ${!isInv ? `<div class="dp-dep">${d.showDep ? `<div class="dtr">${'<span>Depósito requerido</span>'}<span class="dtr-x"><input class="in plain n sm" data-k="deposit" inputmode="decimal" placeholder="0" value="${esc(d.deposit??'')}"><select class="in plain sm" data-k="depType"><option value="%" ${d.depType!=='$'?'selected':''}>%</option><option value="$" ${d.depType==='$'?'selected':''}>$</option></select></span><b class="num" data-tot="dep">${fmt(t.dep,1)}</b><button class="icon-btn" data-act="rm-dep" aria-label="Quitar depósito">${I.x}</button></div>` : `<button class="linkbtn" data-act="add-dep">${I.plus} Solicitar depósito</button>`}</div>` : ''}
       <div class="dp-notes"><label class="f"><span class="label">Notas / Términos</span><textarea class="in plain" data-k="notes" rows="4" placeholder="Escribe notas o términos para el cliente">${esc(d.notes||'')}</textarea></label>${notesMic()}</div>
