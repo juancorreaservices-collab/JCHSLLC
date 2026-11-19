@@ -818,7 +818,7 @@ button.lrow:hover{background:var(--surface-2)}
   .mob-top{display:flex;align-items:center;justify-content:space-between;padding:10px 0 0}
   .mob-top img{height:34px;filter:var(--logo-filter)}
   .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);overflow-x:auto;padding:4px max(6px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
-  .tabbar button{flex:1 0 66px;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;padding:6px 4px;font-size:10px;font-weight:600;color:var(--ink-3);border-radius:8px}
+  .tabbar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;padding:6px 2px;font-size:10px;font-weight:600;color:var(--ink-3);border-radius:8px}
   .tabbar button svg{width:20px;height:20px}
   .tabbar button[aria-current="page"]{color:var(--accent)}
   .head h1{font-size:24px}
@@ -1206,9 +1206,9 @@ function offline(){
 
 /* ---------- Navigation ---------- */
 const VIEWS = [
-  ['panel','Panel',I.panel,''],['proyectos','Proyectos',I.board,''],['estimados','Estimados',I.est,''],['facturas','Facturas',I.inv,''],['calendario','Calendario',I.cal,''],
+  ['panel','Panel',I.panel,''],['proyectos','Proyectos',I.board,''],['estimados','Estimados',I.est,''],['facturas','Facturas',I.inv,''],['servicios','Servicios',I.tool,''],['calendario','Calendario',I.cal,''],
   ['clientes','Clientes',I.users,'more'],['productos','Productos y servicios',I.tag,'more'],
-  ['gastos','Gastos',I.wallet,'more'],['reportes','Reportes',I.chart,'more'],['servicios','Servicios',I.tool,'more'],
+  ['gastos','Gastos',I.wallet,'more'],['reportes','Reportes',I.chart,'more'],
   ['email','Email',I.mail,'more'],['ajustes','Ajustes',I.gear,'more']
 ];
 function render(){
