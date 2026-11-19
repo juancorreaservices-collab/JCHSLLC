@@ -905,7 +905,7 @@ const DEFAULT_SETTINGS = {
   invPrefix:'INV-', invNext:1001, estPrefix:'EST-', estNext:1001, taxRate:0, payDays:15, markup:15,
   estTerms:'Thank you for the opportunity to work on your home. Please let me know if you have any questions.',
   invTerms:'Thank you for your business!',
-  contractTerms:'',
+  contractTerms:'', flNotices:'', cilbContact:'Construction Industry Licensing Board, 2601 Blair Stone Road, Tallahassee, FL 32399-1039, (850) 487-1395',
   stripeLink:'', whopLink:'', fanbasisLink:'', paypalMe:'', cashtag:'', venmo:'', zelle:'', checkPayable:'JCHS LLC', threshold1099:2000
 };
 const S = {
@@ -983,11 +983,24 @@ function planRows(d){
   return { rows, sum, total, diff: Math.round((total-sum)*100)/100 };
 }
 const planStatus = pr => !pr.rows.length ? '' : Math.abs(pr.diff) < 0.01 ? `Los pagos suman el total: ${fmt(pr.total,1)}` : pr.diff > 0 ? `Faltan ${fmt(pr.diff,1)} por repartir` : `Los pagos pasan el total por ${fmt(-pr.diff,1)}`;
-const CONTRACT_SAMPLE = `1. Scope. The contractor will perform the work described in this estimate at the property listed above.
-2. Price and payments. The client agrees to pay the total shown in this estimate according to the payment schedule above.
-3. Changes. Any change to the scope of work or to the price must be agreed in writing (email is acceptable) before the additional work is done.
-4. Access. The client will provide access to the property so the work can be completed.
-5. Acceptance. By signing, the client accepts this estimate and authorizes the contractor to proceed with the work.`;
+const CONTRACT_SAMPLE = `1. Scope of work. Contractor will perform the work described in this estimate at the property listed above. Work that is not listed in this estimate is not included.
+2. Price and payments. Client agrees to pay the total shown in this estimate according to the payment schedule above.
+3. Late payments. If a payment is not received when it is due, Client has seven (7) days to make the payment. If it is not paid within those seven (7) days, Contractor may stop work until the payment is received.
+4. Changes. Any change to the scope of work or to the price must be agreed in writing (email is acceptable) before the additional work is done.
+5. Access. Client will provide access to the property so the work can be completed.
+6. Workmanship. Client has fifteen (15) days after the work is completed to notify Contractor of any concern with the work. Contractor will review it and correct any defect in its workmanship reported within that time.
+7. Cancellation. If Client cancels before any work has started, all payments made will be refunded. If Client cancels after work has started, Contractor will give a prorated refund: the amount paid, less the value of the work already performed and of the materials already purchased for the project.
+8. Acceptance. By signing, Client accepts this estimate and this agreement and authorizes Contractor to proceed with the work.`;
+/* Notices Florida requires in residential contracts over $2,500. The wording is the statutory text
+   (s. 713.015(1) and s. 489.1425(1), Florida Statutes 2025); do not edit it. */
+const FL_LIEN_NOTICE = `ACCORDING TO FLORIDA’S CONSTRUCTION LIEN LAW (SECTIONS 713.001-713.37, FLORIDA STATUTES), THOSE WHO WORK ON YOUR PROPERTY OR PROVIDE MATERIALS AND SERVICES AND ARE NOT PAID IN FULL HAVE A RIGHT TO ENFORCE THEIR CLAIM FOR PAYMENT AGAINST YOUR PROPERTY. THIS CLAIM IS KNOWN AS A CONSTRUCTION LIEN. IF YOUR CONTRACTOR OR A SUBCONTRACTOR FAILS TO PAY SUBCONTRACTORS, SUB-SUBCONTRACTORS, OR MATERIAL SUPPLIERS, THOSE PEOPLE WHO ARE OWED MONEY MAY LOOK TO YOUR PROPERTY FOR PAYMENT, EVEN IF YOU HAVE ALREADY PAID YOUR CONTRACTOR IN FULL. IF YOU FAIL TO PAY YOUR CONTRACTOR, YOUR CONTRACTOR MAY ALSO HAVE A LIEN ON YOUR PROPERTY. THIS MEANS IF A LIEN IS FILED YOUR PROPERTY COULD BE SOLD AGAINST YOUR WILL TO PAY FOR LABOR, MATERIALS, OR OTHER SERVICES THAT YOUR CONTRACTOR OR A SUBCONTRACTOR MAY HAVE FAILED TO PAY. TO PROTECT YOURSELF, YOU SHOULD STIPULATE IN THIS CONTRACT THAT BEFORE ANY PAYMENT IS MADE, YOUR CONTRACTOR IS REQUIRED TO PROVIDE YOU WITH A WRITTEN RELEASE OF LIEN FROM ANY PERSON OR COMPANY THAT HAS PROVIDED TO YOU A “NOTICE TO OWNER.” FLORIDA’S CONSTRUCTION LIEN LAW IS COMPLEX, AND IT IS RECOMMENDED THAT YOU CONSULT AN ATTORNEY.`;
+const FL_FUND_NOTICE = `PAYMENT, UP TO A LIMITED AMOUNT, MAY BE AVAILABLE FROM THE FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND IF YOU LOSE MONEY ON A PROJECT PERFORMED UNDER CONTRACT, WHERE THE LOSS RESULTS FROM SPECIFIED VIOLATIONS OF FLORIDA LAW BY A LICENSED CONTRACTOR. FOR INFORMATION ABOUT THE RECOVERY FUND AND FILING A CLAIM, CONTACT THE FLORIDA CONSTRUCTION INDUSTRY LICENSING BOARD AT THE FOLLOWING TELEPHONE NUMBER AND ADDRESS:`;
+function legalNotices(d){
+  const st = S.settings; if (!st.flNotices || docTotals(d).total <= 2500) return [];
+  return [ { title:'FLORIDA CONSTRUCTION LIEN LAW NOTICE', text: FL_LIEN_NOTICE },
+           { title:'FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND', text: FL_FUND_NOTICE + '\n' + (st.cilbContact||'').trim() } ];
+}
+
 const contractText = d => (d.noContract ? '' : (S.settings.contractTerms||'').trim());
 function areasOf(d){ const g=[]; (d.items||[]).filter(r=>(r.desc||'').trim()).forEach(r=>{ const a=(r.area||'').trim()||'Scope of Work'; let x=g.find(y=>y.area===a); if(!x){x={area:a,items:[]};g.push(x);} x.items.push(r); }); return g; }
 /* A readable name for each estimate / invoice, built from what it is about.
@@ -1814,8 +1827,9 @@ async function act(name, el){
     case 'rm-markup': o.useMarkup = ''; persist(coll,o); renderDrawer(); return;
     case 'add-tax': o.showTax = '1'; persist(coll,o); renderDrawer('[data-k="taxRate"]'); return;
     case 'rm-tax': o.showTax = ''; o.taxRate = 0; persist(coll,o); renderDrawer(); return;
+    case 'toggle-set': S.settings[el.dataset.key] = el.checked ? '1' : ''; saveSettings(); renderView(); return;
     case 'copy-share': { const e = cur(); try { const u = await ensureShare(e); await navigator.clipboard.writeText(u); toast('Link copiado'); } catch(_){ toast('No se pudo copiar el link'); } return; }
-    case 'contract-sample': S.settings.contractTerms = CONTRACT_SAMPLE; saveSettings(); renderView(); toast('Texto base agregado. Léelo y ajústalo a tu negocio.'); return;
+    case 'contract-sample': S.settings.contractTerms = CONTRACT_SAMPLE; saveSettings(); renderView(); toast('Contrato base agregado. Léelo completo antes de usarlo.'); return;
     case 'plan-preset': o.plan = PLAN_PRESETS[el.dataset.v].map(([label,when,kind,value])=>({label,when,kind,value})); o.showDep = ''; o.deposit = ''; persist(coll,o); return renderDrawer(el.dataset.v==='custom'?'[data-list="plan"][data-i="0"][data-k="value"]':undefined);
     case 'plan-add': { const pl = o.plan ||= []; const at = pl.findIndex(r=>r.kind==='rest'); const row = {label:'', when:'', kind:'%', value:''}; if (at>=0) pl.splice(at,0,row); else pl.push(row); persist(coll,o); return renderDrawer(`[data-list="plan"][data-i="${at>=0?at:pl.length-1}"][data-k="label"]`); }
     case 'plan-clear': o.plan = []; persist(coll,o); return renderDrawer();
@@ -2582,7 +2596,7 @@ function payLinks(inv){
 }
 
 /* ---------- Client-facing documents (English, JC Home Services format) ---------- */
-function bizLine(){ const st=S.settings; return [st.tradeName, st.ownerName, st.phone, st.email].filter(Boolean).join(' | '); }
+function bizLine(){ const st=S.settings; return [st.tradeName, st.ownerName, st.phone, st.email, (st.license||'').trim() ? 'License '+st.license.trim() : ''].filter(Boolean).join(' | '); }
 function paperHTML(d, coll){
   const isInv = coll==='invoices'; const st = S.settings; const t = docTotals(d); const cl = S.clients[d.clientId] || {};
   const head = `<div class="ph"><img src="data:image/jpeg;base64,${LOGO_PDF}" alt="JC Home Services" style="width:150px">
@@ -2611,6 +2625,7 @@ function paperHTML(d, coll){
     if (pr.rows.length) body += `<div style="margin-top:22px"><div class="lab">Payment schedule</div><table style="margin-top:6px"><tbody>${pr.rows.map((r,i)=>`<tr><td style="width:28px;color:#7b828c">${i+1}.</td><td><b>${esc(r.label||'Payment '+(i+1))}</b>${r.when?`<div style="color:#4a5059;font-size:13px">${esc(r.when)}</div>`:''}</td><td class="n" style="color:#4a5059">${r.kind==='%'?N(r.value)+'%':''}</td><td class="n"><b>${money(r.amount)}</b></td></tr>`).join('')}</tbody></table></div>`;
     const ct = contractText(d);
     if (ct) body += `<div style="margin-top:22px"><div class="lab">Agreement</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-top:6px">${esc(ct)}</div></div>`;
+    legalNotices(d).forEach(n => { body += `<div style="margin-top:22px;border:1px solid #15171a;padding:12px 14px"><div style="font-weight:800;font-size:16px;margin-bottom:6px">${esc(n.title)}</div><div style="white-space:pre-wrap;font-weight:800;font-size:16px;line-height:1.4">${esc(n.text)}</div></div>`; });
     if (d.sign?.name) body += `<div style="margin-top:22px;border:1px solid #e1e4e9;border-radius:8px;padding:14px 16px"><div class="lab">Accepted and signed</div>${d.sign.image?`<img src="${esc(d.sign.image)}" alt="Signature" style="height:64px;display:block;margin:6px 0">`:''}<b>${esc(d.sign.name)}</b><div style="color:#4a5059;font-size:13px">${fdateEn(String(d.sign.at||'').slice(0,10))}${d.sign.ip?' · IP '+esc(d.sign.ip):''}</div></div>`;
   }
   const close = `${d.notes?`<div class="notes">${esc(d.notes)}</div>`:''}<div style="margin-top:18px"><b>${esc(st.ownerName)}</b><br>${esc(st.tradeName)}<br>${esc(st.phone)}<br>${esc(st.email)}</div>
@@ -2698,6 +2713,14 @@ function makePDF(d, coll){
       pdf.setFont('helvetica','bold'); pdf.setFontSize(11); need(40); pdf.text('Agreement', M, y); y += 16;
       pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5);
       pdf.splitTextToSize(ct, W-2*M).forEach(line => { need(14); pdf.text(line, M, y); y += 12.5; });
+    }
+    const notices = legalNotices(d);
+    notices.forEach(n => {
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(12); const lines = pdf.splitTextToSize(n.text, W-2*M);
+      need(Math.min(lines.length, 6)*15 + 40); y += 8; pdf.text(n.title, M, y); y += 18;
+      lines.forEach(line => { need(16); pdf.text(line, M, y); y += 15; }); y += 10;
+    });
+    if (ct || notices.length){
       y += 14; need(96);
       if (d.sign?.name){
         if (d.sign.image){ try { pdf.addImage(d.sign.image, 'PNG', M, y-6, 150, 50); } catch(_){} }
@@ -2745,7 +2768,7 @@ function shareSnapshot(d){
     cols, groups: areasOf(d).map(g=>({area:g.area, items:g.items.map(r=>({desc:r.desc, qty:N(r.qty||1), price: cols.price?money(N(r.rate)*f):'', amount: cols.amount?money(N(r.qty||1)*N(r.rate)*f):''}))})),
     lines, total: money(t.total), totalNumber: t.total,
     plan: pr.rows.map((r,i)=>({label:r.label||`Payment ${i+1}`, when:r.when||'', pct:r.kind==='%'?N(r.value):null, amount:money(r.amount)})),
-    notes:d.notes||'', contract: contractText(d), updatedAt:new Date().toISOString() };
+    notes:d.notes||'', contract: contractText(d), notices: legalNotices(d), updatedAt:new Date().toISOString() };
 }
 async function ensureShare(d){
   if (!window.claude?.standalone || !S.db) return '';
@@ -2788,7 +2811,7 @@ function mailLayout(d, coll, text, shareUrl){
     card = `${label('Estimate total')}<div style="${F}font-size:32px;font-weight:bold;color:${INK};margin:4px 0 14px">${money(t.total)}</div>
       ${scope.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px">${label('Scope of work')}<div style="${F}font-size:14px;line-height:1.9;color:${INK};margin-top:6px">${scope.map(esc).join('<br>')}${more>0?`<br><span style="color:${MUTE}">and ${more} more, see the attached PDF</span>`:''}</div></div>` : ''}
       ${(() => { const pr = planRows(d); return pr.rows.length ? `<div style="border-top:1px solid ${LINE};padding-top:12px;margin-top:12px">${label('Payment schedule')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px">${pr.rows.map((r,i)=>`<tr><td style="${F}padding:5px 0;font-size:13.5px;color:${INK}">${esc(r.label||'Payment '+(i+1))}${r.when?`<span style="color:${MUTE}"> · ${esc(r.when)}</span>`:''}</td><td align="right" style="${F}padding:5px 0;font-size:13.5px;font-weight:bold;color:${INK};white-space:nowrap">${money(r.amount)}</td></tr>`).join('')}</table></div>` : ''; })()}
-      ${shareUrl ? button(shareUrl, contractText(d) ? 'Review and Sign' : 'Review and Accept') : button(acc, 'Accept Estimate')}
+      ${shareUrl ? button(shareUrl, 'Review and Sign') : button(acc, 'Accept Estimate')}
       <div style="${F}font-size:14px;margin-top:14px;text-align:center"><a href="${esc(q)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Ask a question</a> &nbsp;·&nbsp; <a href="${esc(ch)}" style="color:#1F5EFF;font-weight:bold;text-decoration:none">Request changes</a></div>`;
   }
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F7FB" style="background-color:#F4F7FB"><tr><td align="center" style="padding:24px 12px">
@@ -3338,7 +3361,9 @@ function vSettings(){
     <div class="fgrid">${f('Prefijo de factura','invPrefix')}${f('Siguiente número de factura','invNext','number')}${f('Prefijo de estimado','estPrefix')}${f('Siguiente número de estimado','estNext','number')}${f('Impuesto por defecto (%)','taxRate','number')}${f('Días para pagar','payDays','number')}${f('Ganancia a sumar en estimados (%)','markup','number','15','Se aplica al total cuando eliges "Sumar % al total" en un estimado.')}${f('Mínimo para 1099-NEC ($)','threshold1099','number','2000','Pagos a un subcontratista desde este monto aparecen marcados en Reportes. Confírmalo con tu contador.')}
     <label class="f full"><span>Notas por defecto en estimados</span><textarea class="in" data-set="estTerms" rows="3">${esc(st.estTerms)}</textarea></label>
     <label class="f full"><span>Contrato que firma el cliente al aceptar un estimado (en inglés)</span><textarea class="in" data-set="contractTerms" rows="10" placeholder="Escribe aquí los términos de tu contrato. Si lo dejas vacío, el cliente acepta el estimado sin contrato.">${esc(st.contractTerms||'')}</textarea>
-      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar un texto base para empezar</button>`}</small></label>
+      <small class="muted">Este texto aparece debajo del estimado en la página donde el cliente firma, y en el PDF. Kuadra agrega sola el trabajo, el total y el plan de pagos. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Usar el contrato base</button>`}</small></label>
+    <label class="chk full" style="grid-column:1/-1"><input type="checkbox" data-act="toggle-set" data-key="flNotices" ${st.flNotices?'checked':''}> Agregar los avisos que exige Florida cuando el total pasa de $2,500 (ley de gravámenes y fondo de recuperación)</label>
+    ${st.flNotices ? `<label class="f full"><span>Dirección y teléfono de la junta de licencias, que va al final del aviso del fondo de recuperación</span><input class="in" data-set="cilbContact" value="${esc(st.cilbContact||'')}"><small class="muted">Confirma estos datos en el sitio del DBPR de Florida antes de usarlos.${(st.license||'').trim()?'':' <b>Falta tu número de licencia</b> arriba, en los datos del negocio: la ley pide que aparezca en cada contrato y propuesta.'}</small></label>` : ''}
     <label class="f full"><span>Notas por defecto en facturas</span><textarea class="in" data-set="invTerms" rows="3">${esc(st.invTerms)}</textarea></label></div></section>
   <section class="card pad grid"><h3 style="font-size:16px">Exportar</h3><span class="muted">Descarga todos tus proyectos en un archivo CSV para tu contador o para Excel.</span><div><button class="btn" data-act="export">${I.dl} Exportar proyectos (CSV)</button></div></section>`;
 }

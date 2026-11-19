@@ -40,6 +40,10 @@
   .sched small{display:block;color:var(--ink-2);font-size:13px}
   .terms{white-space:pre-wrap;font-size:14px;color:var(--ink);margin-top:8px}
   .notes{white-space:pre-wrap;color:var(--ink-2);font-size:14px}
+  /* statutory notices: bold capitals, at least 12-point (16px) */
+  .notice{border:1.5px solid var(--ink);border-radius:6px;padding:16px 18px}
+  .notice-t{font-size:16px;font-weight:800;margin-bottom:8px}
+  .notice-b{font-size:16px;font-weight:800;line-height:1.45;white-space:pre-wrap;text-transform:uppercase}
   .signbox{background:var(--soft)}
   label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink-2);font-weight:500}
   input[type=text]{font:inherit;font-size:16px;padding:12px 14px;border:1px solid #C9D3E0;border-radius:8px;background:#fff;color:var(--ink);width:100%}
@@ -109,6 +113,7 @@
     }
     if (S.notes) parts.push(el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Notes' }), el('div', { class: 'notes', style: 'margin-top:6px', text: S.notes })));
     if (S.contract) parts.push(el('div', { class: 'pad sec' }, el('div', { class: 'lbl', text: 'Agreement' }), el('div', { class: 'terms', text: S.contract })));
+    (S.notices || []).forEach(n => parts.push(el('div', { class: 'pad sec' }, el('div', { class: 'notice' }, el('div', { class: 'notice-t', text: n.title }), el('div', { class: 'notice-b', text: n.text })))));
     parts.push(S.signed ? signedBlock() : signBlock());
     parts.push(el('div', { class: 'foot', text: `${b.tradeName}${b.legalName && b.legalName !== b.tradeName ? ' · ' + b.legalName : ''}` }));
     app.replaceChildren(...parts);
@@ -126,16 +131,17 @@
 
   let dirty = false, canvas, ctx;
   function signBlock() {
-    const what = S.contract ? 'this estimate and the agreement above' : 'this estimate';
+    const hasN = (S.notices || []).length > 0;
+    const what = S.contract ? (hasN ? 'this estimate, the agreement and the notices above' : 'this estimate and the agreement above') : (hasN ? 'this estimate and the notices above' : 'this estimate');
     const mail = (subj, body) => `mailto:${S.business.email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
     return el('div', { class: 'pad sec signbox noprint', id: 'signbox' },
-      el('div', { class: 'lbl', text: S.contract ? 'Accept and sign' : 'Accept this estimate' }),
+      el('div', { class: 'lbl', text: 'Accept and sign' }),
       el('label', { class: 'f', style: 'margin-top:12px' }, 'Your full name', el('input', { type: 'text', id: 'nm', autocomplete: 'name', value: '' })),
       el('div', { class: 'f', style: 'margin-top:14px;font-size:13px;color:#44536B;font-weight:500' }, 'Your signature'),
       el('div', { class: 'pad-wrap' }, el('canvas', { id: 'pad' }), el('div', { class: 'pad-line' }), el('div', { class: 'pad-hint', id: 'hint', text: 'Sign here with your finger or mouse' })),
       el('div', { class: 'row' }, el('span', { style: 'font-size:12px;color:#8492A8', text: dateEn(new Date().toISOString()) }), el('button', { class: 'link', type: 'button', text: 'Clear', onclick: clearPad })),
       el('label', { class: 'agree' }, el('input', { type: 'checkbox', id: 'ag' }), el('span', { text: `I have read and I accept ${what}, for a total of ${S.total}.` })),
-      el('button', { class: 'btn', id: 'go', type: 'button', text: S.contract ? 'Accept and Sign' : 'Accept Estimate', onclick: submit }),
+      el('button', { class: 'btn', id: 'go', type: 'button', text: 'Accept and Sign', onclick: submit }),
       el('div', { class: 'msg', id: 'msg' }),
       S.business.email ? el('div', { class: 'other' }, el('a', { href: mail(`Question - Estimate ${S.number} - ${S.business.tradeName}`, `Hi ${(S.business.ownerName || '').split(' ')[0]},\n\nI have a question about estimate ${S.number}:\n\n`), text: 'Ask a question' }), '  ·  ', el('a', { href: mail(`Changes requested - Estimate ${S.number} - ${S.business.tradeName}`, `Hi ${(S.business.ownerName || '').split(' ')[0]},\n\nI would like the following changes to estimate ${S.number}:\n\n`), text: 'Request changes' })) : null);
   }
@@ -164,7 +170,7 @@
       if (r.ok || r.status === 409) { S.signed = j.signed; render(); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); return; }
       msg.textContent = j.message || 'Could not save. Please try again.';
     } catch (_) { msg.textContent = 'No connection. Please try again.'; }
-    go.disabled = false; go.textContent = S.contract ? 'Accept and Sign' : 'Accept Estimate';
+    go.disabled = false; go.textContent = 'Accept and Sign';
   }
 })();
 </script>
