@@ -547,6 +547,10 @@ button.lrow:hover{background:var(--surface-2)}
 .pj-foot{display:flex;flex-direction:column;gap:6px}
 .pj-foot small{color:var(--ink-3);font-size:12px}
 .num.neg,.neg{color:var(--bad)}
+.row-acts{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.row-acts .icon-btn{color:var(--ink-3)}
+.row-acts .icon-btn:hover{color:var(--bad)}
+.doc-danger{display:flex;justify-content:flex-end}
 /* project page */
 .drawer.full .dr-b.pj-b{gap:18px;padding-top:18px}
 .pj-meta{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -1680,6 +1684,14 @@ async function act(name, el){
     case 'est-for-prop': return newDoc('estimates', {clientId:o.id, property:el.dataset.prop});
     case 'row-est-client': return newDoc('estimates', {clientId:el.dataset.id});
     case 'row-convert': { const e = S.estimates[el.dataset.id]; if (e) await convertEstimate(e); return; }
+    case 'row-del-ask': { const k = S.view==='facturas'?'invoices':'estimates'; const d = S[k][el.dataset.id]; if (!d) return;
+      const paid = k==='invoices' && (d.payments||[]).length;
+      return openModal(`Eliminar ${docLabel(k)} ${esc(d.number)}`, `<p>Se va a borrar para siempre ${k==='invoices'?'la factura':'el estimado'} <b>${esc(d.number)}</b>${clientName(d.clientId)?' de '+esc(clientName(d.clientId)):''} por ${fmt(docTotals(d).total,1)}. No se puede deshacer.${paid?' Los pagos registrados también se quitan del proyecto.':''}</p>`,
+        `<button class="btn" data-act="modal-close">Cancelar</button><button class="btn danger" data-act="row-del-yes" data-id="${d.id}" data-coll="${k}">Sí, eliminar</button>`); }
+    case 'row-del-yes': { const k = el.dataset.coll, id = el.dataset.id; const d0 = S[k]?.[id]; if (!d0) return closeModal();
+      if (k==='invoices' && d0.projectId){ d0.payments = []; syncInvoicePayments(d0); }
+      Object.values(S.estimates).forEach(e=>{ if (e.convertedTo===id){ e.convertedTo=''; persist('estimates',e,true); } });
+      closeModal(); await remove(k, id); renderView(); render(); toast(k==='invoices'?'Factura eliminada':'Estimado eliminado'); return; }
     case 'row-pay': { const i = S.invoices[el.dataset.id]; if (i) recordPayModal(i); return; }
     case 'row-send': { const k = S.view==='facturas'?'invoices':'estimates'; const d = S[k][el.dataset.id]; if (d) composeDoc(d, k); return; }
     case 'record-pay': return recordPayModal(o);
@@ -2290,6 +2302,7 @@ function docView(d, coll, isInv){
       : `<section class="card step"><div class="step-i">3</div><div class="step-b"><h3>Respuesta del cliente</h3><p class="muted">${s[0]==='Convertido'?'Aceptado y convertido en factura':s[0]==='Aceptado'?(d.acceptedBy?`Aceptado por ${esc(d.acceptedBy)} por email el ${fdate(d.acceptedAt)}`:'Aceptado'):s[0]==='Rechazado'?'Rechazado':(d.sentAt?'Esperando respuesta. Si el cliente responde por email, aparece aquí solo.':'Esperando respuesta')}</p></div><div class="tools">${!conv?`<button class="btn sm" data-act="est-mark" data-v="Aceptado">Marcar aceptado</button><button class="btn sm ghost" data-act="est-mark" data-v="Rechazado">Marcar rechazado</button>`:''}</div></section>`}
     </div>
     <div class="paper">${paperHTML(d, coll)}</div>
+    <div class="doc-danger"><button class="btn ghost danger" data-act="doc-del-ask">${I.trash} Eliminar ${docLabel(coll)}</button></div>
   </div>`;
 }
 function pickClientModal(){
@@ -2364,7 +2377,7 @@ function vDocs(kind){
       <label class="search"><span hidden>Buscar</span>${I.search}<input class="in plain" id="docq" placeholder="Buscar cliente o número" value="${esc(S.docQ||'')}"></label></div>
     ${rows.length? `<div class="tbl-wrap"><table>
     <thead><tr><th>Estado</th><th>${isInv?'Vence':'Fecha'}</th><th>Número</th><th>Cliente</th><th class="n">${isInv?'Saldo':'Monto'}</th><th class="n">Total</th><th></th></tr></thead>
-    <tbody>${rows.map(d=>{const t=docTotals(d); const s=docStatus(d,kind); return `<tr class="click" data-open="${kind}:${d.id}"><td><span class="pill ${s[1]}">${s[0]}</span>${isInv?'':replyPill(d)}</td><td>${fdate(isInv?(d.due||d.date):d.date)}</td><td><b>${esc(d.number)}</b></td><td>${esc(clientName(d.clientId)||'—')}${d.summary?`<div class="muted" style="font-size:12px">${esc(d.summary)}</div>`:''}</td><td class="n"><b>${fmt(isInv?t.balance:t.total,1)}</b></td><td class="n muted">${fmt(t.total,1)}</td><td class="n">${action(d)}</td></tr>`}).join('')}</tbody></table></div>`
+    <tbody>${rows.map(d=>{const t=docTotals(d); const s=docStatus(d,kind); return `<tr class="click" data-open="${kind}:${d.id}"><td><span class="pill ${s[1]}">${s[0]}</span>${isInv?'':replyPill(d)}</td><td>${fdate(isInv?(d.due||d.date):d.date)}</td><td><b>${esc(d.number)}</b></td><td>${esc(clientName(d.clientId)||'—')}${d.summary?`<div class="muted" style="font-size:12px">${esc(d.summary)}</div>`:''}</td><td class="n"><b>${fmt(isInv?t.balance:t.total,1)}</b></td><td class="n muted">${fmt(t.total,1)}</td><td class="n"><span class="row-acts">${action(d)}<button class="icon-btn" data-act="row-del-ask" data-id="${d.id}" title="Eliminar" aria-label="Eliminar ${esc(d.number)}">${I.trash}</button></span></td></tr>`}).join('')}</tbody></table></div>`
     : `<div class="empty"><h3>${all.length?'Nada en esta pestaña':(isInv?'Aún no hay facturas':'Aún no hay estimados')}</h3><span>${isInv?'Crea una factura o convierte un estimado aceptado. Al enviarla, tu cliente recibe el PDF y el botón de pago.':'Crea un estimado, envíalo por email y cuando lo acepten conviértelo en factura.'}</span>${all.length?'':`<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Crear factura':'Crear estimado'}</button>`}</div>`}
   </section>`}`;
 }
