@@ -498,6 +498,111 @@ details.menu > summary::-webkit-details-marker{display:none}
 .mbox .mb{padding:18px;display:flex;flex-direction:column;gap:14px}
 .mbox .mf{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
 .note{border-radius:8px;padding:10px 12px;font-size:13px;background:var(--info-soft);color:var(--info)}
+/* ===== Layout pass: calmer navigation, Panel and projects ===== */
+.nav-more{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column}
+.nav-more > summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.nav-more > summary::-webkit-details-marker{display:none}
+.nav-more > summary:hover{color:var(--ink)}
+.nav-more > summary .chev svg{width:14px;height:14px;transition:transform .15s}
+.nav-more[open] > summary .chev svg{transform:rotate(90deg)}
+.nav-more > button{font-size:14px}
+.more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.more-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:14px 12px;font:inherit;font-weight:500;color:var(--ink);cursor:pointer;text-align:left}
+.more-item svg{width:20px;height:20px;color:var(--ink-3);flex:none}
+#view{display:flex;flex-direction:column;gap:20px;min-width:0}
+#view > *{min-width:0}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tile.link{border:1px solid var(--line);text-align:left;cursor:pointer;font:inherit;color:inherit}
+.tile.link:hover{border-color:var(--ink-3)}
+.tile .label{font-size:12px;color:var(--ink-3)}
+.lcard{display:flex;flex-direction:column;overflow:hidden}
+.lcard-h,.pj-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 10px;flex-wrap:wrap}
+.lcard-h h3,.pj-card-h h3,.pj-card > h3{font-size:15px;font-weight:600;margin:0}
+.lrow{display:flex;align-items:center;gap:12px;width:100%;padding:12px 18px;border:0;border-top:1px solid var(--line);background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.lrow.static{cursor:default}
+button.lrow:hover{background:var(--surface-2)}
+.lrow-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lrow-m b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow-m small{color:var(--ink-3);font-size:12px}
+.lrow > b.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.lempty{padding:18px;color:var(--ink-3);font-size:14px;border-top:1px solid var(--line)}
+.goal.slim .big{font-size:26px}
+/* project list */
+.pj-stats .tile strong{font-size:22px}
+.pj-group{display:flex;flex-direction:column;gap:12px}
+.pj-gh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.pj-gh h2{font-size:17px;font-weight:600;margin:0}
+.pj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.pjcard{display:flex;flex-direction:column;gap:14px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;font:inherit;color:inherit;cursor:pointer;min-width:0}
+.pjcard:hover{border-color:var(--ink-3);box-shadow:0 2px 10px rgba(11,27,51,.06)}
+.pj-top{display:flex;align-items:flex-start;gap:10px}
+.pj-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pj-name b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj-name small{color:var(--ink-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pj-nums > span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pj-nums small{color:var(--ink-3);font-size:11px}
+.pj-nums b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pj-foot{display:flex;flex-direction:column;gap:6px}
+.pj-foot small{color:var(--ink-3);font-size:12px}
+.num.neg,.neg{color:var(--bad)}
+/* project page */
+.drawer.full .dr-b.pj-b{gap:18px;padding-top:18px}
+.pj-meta{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pj-meta-l{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.mini{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--ink-3);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.mini .in{min-width:150px}
+.pj-who{color:var(--ink-2);font-size:14px;padding-bottom:9px}
+.pj-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi > span{font-size:12px;color:var(--ink-3)}
+.kpi > b{font-family:var(--f-display);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi small{font-size:12px;color:var(--ink-3)}
+.kpi.hl{background:var(--accent-soft);border-color:transparent}
+.pj-tabs{border-bottom:1px solid var(--line);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.pj-tabs::-webkit-scrollbar{display:none}
+.pj-tabs button{white-space:nowrap}
+.pj-body{display:flex;flex-direction:column;gap:16px}
+.pj-two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+.pj-card{overflow:hidden;display:flex;flex-direction:column}
+.pj-card > h3{padding:16px 18px 10px}
+.pj-card .fgrid{padding:4px 18px 16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.pj-card .fgrid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pj-card .fgrid + .fgrid{padding-top:0;grid-template-columns:minmax(0,1fr)}
+.pj-pad{padding:4px 18px 16px;display:flex;flex-direction:column;gap:8px}
+.nlist{padding:2px 18px 16px;display:flex;flex-direction:column;gap:9px}
+.nlist hr{border:0;border-top:1px solid var(--line);margin:3px 0;width:100%}
+.nline{display:flex;justify-content:space-between;gap:12px;font-size:14px;color:var(--ink-2)}
+.nline b{color:var(--ink);font-variant-numeric:tabular-nums}
+.nline.strong{font-weight:600;color:var(--ink)}
+.pj-todo{list-style:none;margin:0;padding:0 18px 14px;display:flex;flex-direction:column;gap:10px}
+.pj-todo li{display:flex;gap:10px;align-items:flex-start}
+.pj-todo .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3);margin-top:7px;flex:none}
+.pj-todo .dot.warn{background:var(--warn)}
+.pj-todo b{font-weight:500;display:block}
+.pj-todo small{color:var(--ink-3);font-size:13px;display:block}
+/* calmer fields and tables inside the project page */
+.drawer.full .in{background:var(--surface);border-color:var(--line)}
+.drawer.full .in:hover{border-color:var(--ink-3)}
+.drawer.full .in:focus{background:var(--surface)}
+.drawer.full .ptbl{border-top:1px solid var(--line)}
+.drawer.full .ptr{padding:8px 14px}
+.drawer.full .ptr.hd{background:none;padding-top:10px;padding-bottom:6px}
+.drawer.full .ptr.tot{background:var(--surface-2);font-weight:600}
+.drawer.full .ptr:last-child{border-bottom:0}
+@media (max-width:1100px){.pj-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.pj-two{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  .g3,.g2,.pj-stats.g4{grid-template-columns:minmax(0,1fr)}
+  .pj-stats.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pj-grid{grid-template-columns:minmax(0,1fr)}
+  .pj-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pj-kpis .kpi.hl{grid-column:1/-1}
+  .pj-card .fgrid,.pj-card .fgrid.three{grid-template-columns:minmax(0,1fr)}
+  .pj-who{padding-bottom:0;width:100%}
+  .mini{flex:1}.mini .in{min-width:0;width:100%}
+  .tabbar button{flex:1 1 0}
+}
 /* icons inside text never grow past text size */
 :where(.note,.hidnote,.banner,.toast,.pill,small,p,label,.muted) > svg{width:16px;height:16px;flex:none;vertical-align:-3px;display:inline-block}
 .note.bad{background:var(--bad-soft);color:var(--bad)}
@@ -844,18 +949,25 @@ function offline(){
 
 /* ---------- Navigation ---------- */
 const VIEWS = [
-  ['panel','Panel',I.panel,''],['proyectos','Proyectos',I.board,''],
-  ['estimados','Estimados',I.est,'Ventas'],['facturas','Facturas',I.inv,'Ventas'],['clientes','Clientes',I.users,'Ventas'],['productos','Productos y servicios',I.tag,'Ventas'],
-  ['gastos','Gastos',I.wallet,'Contabilidad'],['reportes','Reportes',I.chart,'Contabilidad'],['servicios','Servicios',I.tool,'Contabilidad'],
-  ['email','Email',I.mail,'Otros'],['ajustes','Ajustes',I.gear,'Otros']
+  ['panel','Panel',I.panel,''],['proyectos','Proyectos',I.board,''],['estimados','Estimados',I.est,''],['facturas','Facturas',I.inv,''],
+  ['clientes','Clientes',I.users,'more'],['productos','Productos y servicios',I.tag,'more'],
+  ['gastos','Gastos',I.wallet,'more'],['reportes','Reportes',I.chart,'more'],['servicios','Servicios',I.tool,'more'],
+  ['email','Email',I.mail,'more'],['ajustes','Ajustes',I.gear,'more']
 ];
 function render(){
   const overdue = list('invoices').filter(i=>invStatus(i)[0]==='Vencida').length;
   const curNav = S.view==='doc' && S.doc ? (S.doc.coll==='invoices'?'facturas':'estimados') : S.view;
   const btn = ([k,l,ic]) => `<button data-go="${k}" ${curNav===k?'aria-current="page"':''}>${ic}<span>${l}</span>${k==='facturas'&&overdue?`<span class="badge">${overdue}</span>`:''}</button>`;
-  let grp = ''; $('#nav').innerHTML = VIEWS.map(v=>{ const h = v[3] && v[3]!==grp ? `<div class="nav-grp">${v[3]}</div>` : ''; grp = v[3]; return h + btn(v); }).join('');
-  $('#tabbar').innerHTML = VIEWS.map(v=>btn(v[1]==='Productos y servicios'?[v[0],'Productos',v[2]]:v)).join('');
+  const main = VIEWS.filter(v=>v[3]!=='more'), more = VIEWS.filter(v=>v[3]==='more');
+  const inMore = more.some(v=>v[0]===curNav);
+  let open = inMore; try { open = open || localStorage.getItem('kuadra.more')==='1'; } catch(_){}
+  $('#nav').innerHTML = main.map(btn).join('') + `<details class="nav-more" ${open?'open':''}><summary><span>Más</span><span class="chev">${I.right}</span></summary>${more.map(btn).join('')}</details>`;
+  $('#tabbar').innerHTML = main.map(btn).join('') + `<button data-act="more-menu" ${inMore?'aria-current="page"':''}>${I.gear}<span>Más</span></button>`;
   renderView();
+}
+document.addEventListener('toggle', e => { if (e.target.matches?.('.nav-more')) { try { localStorage.setItem('kuadra.more', e.target.open?'1':'0'); } catch(_){} } }, true);
+function moreMenu(){
+  openModal('Más', `<div class="more-grid">${VIEWS.filter(v=>v[3]==='more').map(([k,l,ic])=>`<button class="more-item" data-go="${k}">${ic}<span>${l}</span></button>`).join('')}</div>`, '');
 }
 function go(v){
   if (S.view==='doc' && S.doc?.mode==='edit' && S.doc.dirty && !S.forceGo){
@@ -863,7 +975,7 @@ function go(v){
     openModal('Cambios sin guardar', `<p>Tienes cambios sin guardar en este ${docLabel(S.doc.coll)}. ¿Qué quieres hacer?</p>`, `<button class="btn" data-act="modal-close">Seguir editando</button><button class="btn danger" data-act="go-discard">Salir sin guardar</button><button class="btn primary" data-act="go-save">Guardar</button>`);
     return;
   }
-  S.forceGo = false; S.doc = null;
+  S.forceGo = false; S.doc = null; if (!$('#modal').hidden) closeModal();
   S.view = v; try{ history.replaceState(null,'','#'+v); }catch(e){} render(); window.scrollTo(0,0);
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
@@ -902,47 +1014,44 @@ function vPanel(){
   svc.forEach(s=>{ if(N(s.charged)) payments.push({date:s.date||'', amount:s.charged, who:s.name+' · '+(s.client||''), note:'Servicio'}); });
   payments.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 
+  const open = invs.filter(i=>!['Pagada','Borrador'].includes(invStatus(i)[0]) && docTotals(i).balance>0.004).sort((x,y)=>String(x.due||x.date).localeCompare(String(y.due||y.date)));
+  const openTotal = open.reduce((a,i)=>a+docTotals(i).balance,0);
+  const row = (coll, d, right, sub) => { const s2 = docStatus(d, coll); return `<button class="lrow" data-open="${coll}:${d.id}"><span class="lrow-m"><b>${esc(clientName(d.clientId)||'Sin cliente')}</b><small>${esc(d.number)}${sub?' · '+sub:''}</small></span><span class="pill ${s2[1]}">${s2[0]}</span><b class="num">${right}</b></button>`; };
   return `
-  <div class="head"><div><h1>Panel</h1><p>${monthLabel(curMonth())} · ${active} proyecto${active===1?'':'s'} activo${active===1?'':'s'}</p></div>
-    <div class="tools"><button class="btn" data-act="new-est">${I.est} Nuevo estimado</button><button class="btn primary" data-act="new-project">${I.plus} Nuevo proyecto</button></div></div>
+  <div class="head"><div><h1>Panel</h1><p>${monthLabel(curMonth())}</p></div>
+    <div class="tools"><button class="btn" data-act="new-project">${I.plus} Proyecto</button><button class="btn" data-act="new-est">${I.plus} Estimado</button><button class="btn primary" data-act="new-inv">${I.plus} Factura</button></div></div>
   ${loading()? loadingBlock('tus números') : `
-  <section class="card pad goal">
+  <div class="grid g3">
+    <button class="card tile link" data-go="facturas"><span class="label">Por cobrar en facturas</span><strong class="num">${fmt(openTotal)}</strong><small>${open.length} factura${open.length===1?'':'s'} abierta${open.length===1?'':'s'}</small></button>
+    <button class="card tile link ${venc.length?'alert':''}" data-go="facturas"><span class="label">Facturas vencidas</span><strong class="num">${venc.length}</strong><small>${venc.length? fmt(venc.reduce((a,i)=>a+docTotals(i).balance,0))+' sin pagar' : 'Todo al día'}</small></button>
+    <button class="card tile link" data-go="estimados"><span class="label">Estimados esperando respuesta</span><strong class="num">${ests.length}</strong><small>${ests.length? fmt(ests.reduce((a,e)=>a+docTotals(e).total,0)) : 'Ninguno pendiente'}</small></button>
+  </div>
+  <div class="grid g2">
+    <section class="card lcard"><div class="lcard-h"><h3>Facturas por cobrar</h3><button class="linkbtn" data-go="facturas">Ver todas</button></div>
+      ${open.length ? open.slice(0,5).map(i=>row('invoices', i, fmt(docTotals(i).balance,1), i.due?'vence '+fdate(i.due):'')).join('') : `<div class="lempty">No hay facturas por cobrar.</div>`}</section>
+    <section class="card lcard"><div class="lcard-h"><h3>Estimados enviados</h3><button class="linkbtn" data-go="estimados">Ver todos</button></div>
+      ${ests.length ? ests.slice(0,5).map(e=>row('estimates', e, fmt(docTotals(e).total,1), e.sentAt?'enviado '+fdate(e.sentAt):'')).join('') : `<div class="lempty">No hay estimados esperando respuesta.</div>`}</section>
+  </div>
+  <section class="card pad goal slim">
     <div>
       <div class="label">Meta de ganancia neta al ${fdate(st.goalDate)}</div>
       <div class="big num">${fmt(done)} <span class="of">de ${fmt(goal)}</span></div>
       <div class="bar" role="img" aria-label="${pct(done/goal)} de la meta"><b style="width:${Math.min(100,projected/goal*100)}%"></b><i style="width:${Math.min(100,Math.max(0,done/goal*100))}%"></i></div>
-      <div class="bar-legend"><span><span class="sw"></span>Ganada (proyectos completados + servicios): ${pct(done/goal)}</span><span><span class="sw lt"></span>Proyectada (todos los proyectos): ${pct(projected/goal)}</span></div>
+      <div class="bar-legend"><span><span class="sw"></span>Ganada: ${pct(done/goal)}</span><span><span class="sw lt"></span>Proyectada: ${pct(projected/goal)}</span></div>
     </div>
     <div class="kv">
-      <div><span class="label">Falta para la meta</span><strong class="num">${fmt(Math.max(0,goal-done))}</strong></div>
       <div><span class="label">Ganancia proyectada</span><strong class="num">${fmt(projected)}</strong></div>
+      <div><span class="label">Total cobrado</span><strong class="num">${fmt(cobrado)}</strong></div>
+      <div><span class="label">Por cobrar en proyectos</span><strong class="num">${fmt(porCobrar)}</strong></div>
       <div><span class="label">Días restantes</span><strong class="num">${daysLeft}</strong></div>
-      <div><span class="label">Necesitas por semana</span><strong class="num">${fmt(daysLeft? Math.max(0,goal-done)/(daysLeft/7):0)}</strong></div>
     </div>
   </section>
-  <div class="grid g4">
-    <div class="card tile"><span class="label">Total cobrado</span><strong class="num">${fmt(cobrado)}</strong><small>Down payments + pagos + servicios</small></div>
-    <div class="card tile"><span class="label">Por cobrar</span><strong class="num">${fmt(porCobrar)}</strong><small>Saldo de proyectos con precio</small></div>
-    <div class="card tile ${venc.length?'alert':''}"><span class="label">Facturas vencidas</span><strong class="num">${venc.length}</strong><small>${venc.length? fmt(venc.reduce((a,i)=>a+docTotals(i).balance,0))+' sin pagar' : 'Todo al día'}</small></div>
-    <div class="card tile"><span class="label">Estimados enviados</span><strong class="num">${ests.length}</strong><small>${ests.length? fmt(ests.reduce((a,e)=>a+docTotals(e).total,0))+' esperando respuesta':'Ninguno pendiente'}</small></div>
-  </div>
-  <section class="card">
-    <div class="pad" style="padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="font-size:17px">Resumen de proyectos</h3><span class="legend-edit muted">Toca un proyecto para abrirlo</span></div>
-    ${rows.length ? `<div class="tbl-wrap"><table>
-      <thead><tr><th>Proyecto</th><th>Owner</th><th>Mes</th><th class="n">Costo</th><th class="n">Cobrado</th><th class="n">Falta cobrar</th><th class="n">Gastos</th><th class="n">Ganancia neta</th><th>Estado</th><th>Progreso</th></tr></thead>
-      <tbody>${rows.map(p=>{const c=pc(p);return `<tr class="click" data-open="projects:${p.id}"><td><b>${esc(p.name)}</b><div class="muted" style="font-size:12px">${esc(p.type||'')}</div></td><td>${esc(clientName(p.clientId)||p.owner||'—')}</td><td>${esc(monthLabel(p.month))}</td><td class="n">${c.price?fmt(c.price):'—'}</td><td class="n">${fmt(c.cobrado)}</td><td class="n">${c.price?fmt(c.falta):'—'}</td><td class="n">${fmt(c.gastos)}</td><td class="n"><b>${fmt(c.ganancia)}</b></td><td>${statusPill(p.status,P_STATUS)}</td><td><div class="prog"><i style="width:${c.progress*100}%"></i></div></td></tr>`}).join('')}</tbody>
-      <tfoot><tr><td colspan="3">Total</td><td class="n">${fmt(rows.reduce((a,p)=>a+pc(p).price,0))}</td><td class="n">${fmt(rows.reduce((a,p)=>a+pc(p).cobrado,0))}</td><td class="n">${fmt(rows.reduce((a,p)=>a+(pc(p).price?pc(p).falta:0),0))}</td><td class="n">${fmt(rows.reduce((a,p)=>a+pc(p).gastos,0))}</td><td class="n">${fmt(rows.reduce((a,p)=>a+pc(p).ganancia,0))}</td><td colspan="2"></td></tr>
-      <tr><td colspan="7" class="muted" style="font-weight:500">Servicios (ganancia)</td><td class="n">${fmt(svcProfit)}</td><td colspan="2"></td></tr></tfoot>
-    </table></div>` : `<div class="empty"><h3>Aún no hay proyectos</h3><span>Crea tu primer proyecto y aparecerá aquí con su costo, lo cobrado y la ganancia.</span><button class="btn primary" data-act="new-project">${I.plus} Nuevo proyecto</button></div>`}
-  </section>
-  <section class="card">
-    <div class="pad" style="padding-bottom:6px"><h3 style="font-size:17px">Pagos recibidos recientes</h3></div>
-    ${payments.length? `<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>De</th><th>Concepto</th><th class="n">Monto</th></tr></thead><tbody>${payments.slice(0,8).map(x=>`<tr><td>${fdate(x.date)}</td><td>${esc(x.who)}</td><td class="muted">${esc(x.note)}</td><td class="n"><b>${fmt(x.amount)}</b></td></tr>`).join('')}</tbody></table></div>` : `<div class="empty"><span>Cuando registres pagos aparecerán aquí.</span></div>`}
-  </section>`}`;
+  ${payments.length ? `<section class="card lcard"><div class="lcard-h"><h3>Pagos recibidos recientes</h3></div>
+      ${payments.slice(0,5).map(x=>`<div class="lrow static"><span class="lrow-m"><b>${esc(x.who)}</b><small>${esc(x.note)}${x.date?' · '+fdate(x.date):''}</small></span><b class="num">${fmt(x.amount,1)}</b></div>`).join('')}</section>` : ''}`}`;
 }
 
 /* Proyectos: "Resumen" tab mirrors the Resumen sheet; "Por mes" is the board */
-function projTabs(){ return `<div class="tabs" role="tablist" style="border-bottom:1px solid var(--line)">${[['resumen','Resumen'],['mes','Por mes']].map(([k,l])=>`<button role="tab" aria-selected="${S.projTab===k}" data-act="proj-tab" data-v="${k}">${l}</button>`).join('')}</div>`; }
+function projTabs(){ return `<div class="tabs" role="tablist" style="border-bottom:1px solid var(--line)">${[['resumen','Proyectos'],['mes','Mover entre meses']].map(([k,l])=>`<button role="tab" aria-selected="${S.projTab===k}" data-act="proj-tab" data-v="${k}">${l}</button>`).join('')}</div>`; }
 function vProjects(){ return S.projTab==='mes' ? vBoard() : vProjSummary(); }
 function vProjSummary(){
   const st = S.settings; const all = list('projects');
@@ -956,25 +1065,28 @@ function vProjSummary(){
   const projected = sum('ganancia') + svcProfit; const goal = N(st.goalAmount);
   const range = months.length ? (months.length>1 ? `${MES[+months[0].slice(5)-1]} – ${monthLabel(months[months.length-1])}` : monthLabel(months[0])) : '';
   const stCls = s => s==='Completado'?'ok':s==='Incompleto'?'bad':s==='En progreso'?'info':'';
+  const card = ([p,c]) => `<button class="pjcard" data-open="projects:${p.id}">
+      <span class="pj-top"><span class="pnum">${pnum(p)||'—'}</span><span class="pj-name"><b>${esc(p.name)}</b><small>${esc([clientName(p.clientId)||p.owner, p.type].filter(Boolean).join(' · '))}</small></span><span class="pill ${P_STATUS[p.status]||''}">${esc(p.status||'—')}</span></span>
+      <span class="pj-nums"><span><small>Precio</small><b class="num">${c.price?fmt(c.price):'—'}</b></span><span><small>Cobrado</small><b class="num">${fmt(c.cobrado)}</b></span><span><small>Falta cobrar</small><b class="num">${c.price?fmt(c.falta):'—'}</b></span><span><small>Ganancia</small><b class="num ${c.ganancia<0?'neg':''}">${fmt(c.ganancia)}</b></span></span>
+      <span class="pj-foot"><span class="prog"><i style="width:${Math.min(100,c.pctCobrado*100)}%"></i></span><small>${c.price?pct(c.pctCobrado)+' cobrado':'Sin precio todavía'}${p.start||p.end?' · '+[p.start&&fdate(p.start),p.end&&fdate(p.end)].filter(Boolean).join(' → '):''}</small></span>
+    </button>`;
+  const groups = (S.sumMonth==='all' ? months : [S.sumMonth]).map(m=>[m, cs.filter(([p])=>p.month===m)]).filter(g=>g[1].length);
+  const noMonth = cs.filter(([p])=>!p.month); if (noMonth.length && S.sumMonth==='all') groups.push(['', noMonth]);
+  const activeN = all.filter(p=>p.status!=='Completado').length;
   return `
-  <div class="head"><div><h1>Proyectos ${esc(range)}</h1><p>Este resumen se llena solo desde cada proyecto. Toca un proyecto para abrirlo.</p></div>
+  <div class="head"><div><h1>Proyectos</h1><p>${activeN} activo${activeN===1?'':'s'}${range?' · '+esc(range):''}</p></div>
     <div class="tools"><button class="btn primary" data-act="new-project">${I.plus} Nuevo proyecto</button></div></div>
   ${projTabs()}
   ${loading()? loadingBlock('tus proyectos') : `
-  <section class="card sumgoal">
-    <div class="kvr strong"><span>Meta ganancia neta al ${fdate(st.goalDate)}</span><div><input class="in n" data-set="goalAmount" inputmode="decimal" value="${esc(goal)}" style="max-width:160px;margin-left:auto"></div></div>
-    <div class="kvr strong"><span>Ganancia ya hecha (proyectos completados + servicios)</span><div><b class="calcv">${fmt(done)}</b></div></div>
-    <div class="kvr strong"><span>Falta para la meta</span><div><b class="calcv">${fmt(Math.max(0,goal-done))}</b></div></div>
-    <div class="kvr strong"><span>% de la meta</span><div style="display:flex;gap:10px;align-items:center;justify-content:flex-end"><div class="prog" style="flex:1;max-width:220px"><i style="width:${goal?Math.min(100,done/goal*100):0}%;background:var(--accent)"></i></div><b class="calcv">${goal?pct(done/goal):'—'}</b></div></div>
-    <div class="kvr strong"><span>Ganancia proyectada (todos los proyectos + servicios)</span><div><b class="calcv">${fmt(projected)}</b></div></div>
-  </section>
-  <div class="chips"><button class="chip" data-act="sum-month" data-v="all" aria-pressed="${S.sumMonth==='all'}">Todos los meses</button>${months.map(m=>`<button class="chip" data-act="sum-month" data-v="${m}" aria-pressed="${S.sumMonth===m}">${monthLabel(m)}</button>`).join('')}</div>
-  <section class="card sheet"><div class="tbl-wrap"><table>
-    <thead><tr><th>#</th><th>Proyecto</th><th>Tipo</th><th>Owner</th><th>Inicio</th><th>Fin</th><th class="n">Costo</th><th class="n">Down</th><th class="n">Total cobrado</th><th class="n">Falta cobrar</th><th class="n">Compras</th><th class="n">Subcontratistas</th><th class="n">Ganancia neta</th><th>Estado</th><th>Progreso</th></tr></thead>
-    <tbody>${cs.map(([p,c])=>`<tr class="click" data-open="projects:${p.id}"><td class="muted num">${pnum(p)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.type||'')}</td><td>${esc(p.owner||clientName(p.clientId)||'')}</td><td class="nowrap">${p.start?fdate(p.start):''}</td><td class="nowrap">${p.end?fdate(p.end):''}</td><td class="n">${c.price?fmt(c.price):'-'}</td><td class="n">${c.down?fmt(c.down):'-'}</td><td class="n">${c.cobrado?fmt(c.cobrado):'-'}</td><td class="n">${c.price?fmt(c.falta):'-'}</td><td class="n">${c.compras?fmt(c.compras):'-'}</td><td class="n">${c.subCost?fmt(c.subCost):'-'}</td><td class="n"><b style="color:${c.ganancia<0?'var(--bad)':'inherit'}">${c.ganancia?fmt(c.ganancia):'-'}</b></td><td><span class="pill ${stCls(p.status)}">${esc(p.status||'')}</span></td><td><div style="display:flex;align-items:center;gap:6px"><div class="prog" style="width:60px"><i style="width:${c.progress*100}%"></i></div><span class="muted num" style="font-size:12px">${pct(c.progress)}</span></div></td></tr>`).join('') || `<tr><td colspan="15"><div class="empty"><span>No hay proyectos en este mes.</span></div></td></tr>`}</tbody>
-    <tfoot><tr><td></td><td>TOTAL</td><td colspan="4"></td><td class="n">${fmt(sum('price'))}</td><td class="n">${fmt(sum('down'))}</td><td class="n">${fmt(sum('cobrado'))}</td><td class="n">${fmt(cs.reduce((a,[,c])=>a+(c.price?c.falta:0),0))}</td><td class="n">${fmt(sum('compras'))}</td><td class="n">${fmt(sum('subCost'))}</td><td class="n">${fmt(sum('ganancia'))}</td><td colspan="2"></td></tr>
-    <tr class="svc"><td></td><td colspan="11">Servicios (ganancia)</td><td class="n">${fmt(svcProfit)}</td><td colspan="2"><button class="btn sm ghost" data-go="servicios">Ver servicios</button></td></tr></tfoot>
-  </table></div></section>`}`;
+  <div class="grid g4 pj-stats">
+    <div class="card tile"><span class="label">Valor de los proyectos</span><strong class="num">${fmt(sum('price'))}</strong></div>
+    <div class="card tile"><span class="label">Cobrado</span><strong class="num">${fmt(sum('cobrado'))}</strong></div>
+    <div class="card tile"><span class="label">Falta cobrar</span><strong class="num">${fmt(cs.reduce((a,[,c])=>a+(c.price?c.falta:0),0))}</strong></div>
+    <div class="card tile"><span class="label">Ganancia proyectada</span><strong class="num">${fmt(projected)}</strong><small>${goal?pct(projected/goal)+' de la meta de '+fmt(goal):''}</small></div>
+  </div>
+  ${months.length>1?`<div class="chips"><button class="chip" data-act="sum-month" data-v="all" aria-pressed="${S.sumMonth==='all'}">Todos</button>${months.map(m=>`<button class="chip" data-act="sum-month" data-v="${m}" aria-pressed="${S.sumMonth===m}">${monthLabel(m)}</button>`).join('')}</div>`:''}
+  ${groups.length ? groups.map(([m, rows])=>`<section class="pj-group"><div class="pj-gh"><h2>${m?monthLabel(m):'Sin mes'}</h2><span class="muted">${rows.length} proyecto${rows.length===1?'':'s'} · ${fmt(rows.reduce((a,[,c])=>a+c.price,0))}</span></div><div class="pj-grid">${rows.map(card).join('')}</div></section>`).join('')
+    : `<div class="card empty"><h3>Aún no hay proyectos</h3><span>Crea tu primer proyecto y aparecerá aquí con su precio, lo cobrado y la ganancia.</span><button class="btn primary" data-act="new-project">${I.plus} Nuevo proyecto</button></div>`}`}`;
 }
 
 /* ---------- Projects board ---------- */
@@ -1120,90 +1232,108 @@ function drProject(p){
   const del = (key,i) => `<button class="icon-btn" data-act="row-del" data-list="${key}" data-i="${i}" aria-label="Quitar">${I.x}</button>`;
   const invs = list('invoices').filter(i=>i.projectId===p.id), ests = list('estimates').filter(e=>e.projectId===p.id);
   const pays = p.payments||[], subs = p.subs||[], buys = p.purchases||[], tasks = p.tasks||[];
+  const tab = S.drawer.tab || 'resumen';
+  const fld = (label, inner, cls='') => `<label class="f ${cls}"><span>${label}</span>${inner}</label>`;
+  const line = (label, k, cls='') => `<div class="nline ${cls}"><span>${label}</span>${calc(k, k==='ganancia'&&c.ganancia<0?'neg':'')}</div>`;
+  const pend = tasks.filter(t=>(t.status||'Pendiente')!=='Completado');
+  const TABS = [['resumen','Resumen',''],['cobros','Cobros',pays.length],['subs','Subcontratistas',subs.length],['compras','Compras',buys.length],['tareas','Tareas',pend.length],['notas','Notas y documentos',ests.length+invs.length]];
+  const docs = [...ests.map(e=>['estimates',e,'Estimado',estStatus(e)]), ...invs.map(i=>['invoices',i,'Factura',invStatus(i)])];
+  const body = {
+    resumen: () => `
+      <div class="pj-two">
+        <section class="card pj-card"><h3>Detalles</h3>
+          <div class="fgrid">
+            ${fld('Tipo de trabajo', inp('type','text','Ej. Shower'))}
+            ${fld('Cliente', `<select class="in" data-k="clientId">${clientOpts}</select>`)}
+            ${fld('Owner', inp('owner','text','Nombre del dueño'))}
+            ${fld('Ubicación', inp('location','text','Dirección o zona'))}
+            ${fld('Fecha de inicio', inp('start','date'))}
+            ${fld('Fecha de terminación', inp('end','date'))}
+          </div>
+        </section>
+        <section class="card pj-card"><h3>Números</h3>
+          <div class="nlist">
+            ${line('Total cobrado','cobrado')}${line('Falta por cobrar','falta')}
+            <hr>
+            ${line('Compras / materiales','compras')}${line('Subcontratistas','subCost')}${line('Total gastos','gastos','strong')}
+            <hr>
+            ${line('Ganancia neta','ganancia','strong')}${line('Margen de ganancia','margen')}${line('Efectivo neto hoy (cobrado − pagado)','efectivo')}
+          </div>
+        </section>
+      </div>
+      <section class="card pj-card"><div class="pj-card-h"><h3>Qué falta</h3><button class="linkbtn" data-act="pj-tab" data-v="tareas">${tasks.length?'Ver todas las tareas':'Agregar tareas'}</button></div>
+        ${pend.length ? `<ul class="pj-todo">${pend.slice(0,5).map(t=>`<li><span class="dot ${t.status==='Incompleto'?'warn':''}"></span><span><b>${esc(t.text||'Tarea')}</b>${t.notes?`<small>${esc(t.notes)}</small>`:''}</span></li>`).join('')}</ul>${pend.length>5?`<small class="muted" style="padding:0 16px 14px;display:block">y ${pend.length-5} más</small>`:''}`
+          : `<div class="lempty">${tasks.length?'Todas las tareas están completadas.':'Todavía no hay tareas anotadas.'}</div>`}
+      </section>
+      <div class="dr-actions">${delBlock()}</div>`,
+    cobros: () => `
+      <section class="card pj-card"><h3>Precio y down payment</h3>
+        <div class="fgrid three">
+          ${fld('Precio al cliente', inp('price','money','0'))}
+          ${fld('Down payment', inp('down','money','0'))}
+          ${fld('Fecha del down', inp('downDate','date'))}
+        </div>
+        <div class="fgrid">${fld('Ganancia anotada (solo si el proyecto no tiene precio)', inp('profitNote','money','0'))}</div>
+      </section>
+      <section class="card pj-card"><div class="pj-card-h"><h3>Pagos recibidos después del down</h3><button class="btn sm" data-act="row-add" data-list="payments">${I.plus} Agregar pago</button></div>
+        ${pays.length ? `<div class="ptbl">
+          <div class="ptr hd r-pay"><span>Fecha</span><span>Monto</span><span>Nota</span><span></span></div>
+          ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Nota')}${del('payments',i)}</div>`).join('')}
+          <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
+        </div>` : `<div class="lempty">Sin pagos adicionales todavía. Los pagos de las facturas de este proyecto aparecen aquí solos.</div>`}
+      </section>`,
+    subs: () => `
+      <section class="card pj-card"><div class="pj-card-h"><h3>Subcontratistas</h3><button class="btn sm" data-act="row-add" data-list="subs">${I.plus} Agregar subcontratista</button></div>
+        ${subs.length ? `<div class="ptbl">
+          <div class="ptr hd r-sub"><span>Nombre</span><span>Tipo de trabajo</span><span>Costo acordado</span><span>Pagado</span><span>Fecha pago</span><span>Falta pagar</span><span></span></div>
+          ${subs.map((r,i)=>`<div class="ptr r-sub">${li('subs',i,'name',r.name,'text','Nombre')}${li('subs',i,'work',r.work,'text','Trabajo')}${li('subs',i,'cost',r.cost,'money','0')}${li('subs',i,'paid',r.paid,'money','0')}${li('subs',i,'date',r.date,'date')}<span class="calc" data-calc="subfalta-${i}">${fmt(N(r.cost)-N(r.paid),1)}</span>${del('subs',i)}</div>`).join('')}
+          <div class="ptr tot r-sub"><span>Total</span><span></span><b data-calc="subCost">${c.subCostTxt}</b><b data-calc="subPaid">${c.subPaidTxt}</b><span></span><b data-calc="subFalta">${c.subFaltaTxt}</b><span></span></div>
+        </div>` : `<div class="lempty">Todavía no hay subcontratistas en este proyecto.</div>`}
+      </section>`,
+    compras: () => `
+      <section class="card pj-card"><div class="pj-card-h"><h3>Compras y materiales</h3><div class="tools"><button class="btn sm" data-act="new-expense" data-project="${p.id}">${I.camera} Gasto con recibo</button><button class="btn sm" data-act="row-add" data-list="purchases">${I.plus} Agregar compra</button></div></div>
+        ${buys.length ? `<div class="ptbl">
+          <div class="ptr hd r-buy"><span>Fecha</span><span>Qué se compró</span><span>Tienda</span><span>Monto</span><span>Nota</span><span></span></div>
+          ${buys.map((r,i)=>`<div class="ptr r-buy">${li('purchases',i,'date',r.date,'date')}${li('purchases',i,'item',r.item,'text','Material')}${li('purchases',i,'store',r.store,'text','Tienda')}${li('purchases',i,'amount',r.amount,'money','0')}${li('purchases',i,'note',r.note,'text','Nota')}${del('purchases',i)}</div>`).join('')}
+          <div class="ptr tot r-buy"><span>Total</span><span></span><span></span><b data-calc="compras">${c.comprasTxt}</b><span></span><span></span></div>
+        </div>` : `<div class="lempty">Todavía no hay compras anotadas.</div>`}
+        ${linkedExp(p)}
+      </section>`,
+    tareas: () => `
+      <section class="card pj-card"><div class="pj-card-h"><h3>Tareas · ${tasks.length-pend.length} de ${tasks.length} completadas</h3><button class="btn sm" data-act="row-add" data-list="tasks">${I.plus} Agregar tarea</button></div>
+        ${tasks.length ? `<div class="ptbl">
+          <div class="ptr hd r-task"><span>Tarea</span><span>Estado</span><span>Notas</span><span></span></div>
+          ${tasks.map((r,i)=>`<div class="ptr r-task">${li('tasks',i,'text',r.text,'text','Tarea')}<select class="in" data-list="tasks" data-i="${i}" data-k="status">${T_STATUS.map(x=>`<option ${x===(r.status||'Pendiente')?'selected':''}>${x}</option>`).join('')}</select>${li('tasks',i,'notes',r.notes,'text','Notas')}${del('tasks',i)}</div>`).join('')}
+        </div>` : `<div class="lempty">Anota aquí lo que falta por hacer en este proyecto.</div>`}
+      </section>`,
+    notas: () => `
+      <section class="card pj-card"><h3>Notas</h3>
+        <div class="pj-pad"><textarea class="in" data-k="notes" rows="5" placeholder="Notas del proyecto">${esc(p.notes)}</textarea>${notesMic()}${linkify(p.notes)}</div>
+      </section>
+      <section class="card pj-card"><div class="pj-card-h"><h3>Estimados y facturas</h3><div class="tools"><button class="btn sm" data-act="est-from-project">${I.plus} Estimado</button><button class="btn sm" data-act="inv-from-project">${I.plus} Factura</button></div></div>
+        ${docs.length ? docs.map(([cl,d,lab,st2])=>`<button class="lrow" data-open="${cl}:${d.id}"><span class="lrow-m"><b>${lab} ${esc(d.number)}</b><small>${fdate(d.date)}</small></span><span class="pill ${st2[1]}">${st2[0]}</span><b class="num">${fmt(docTotals(d).total,1)}</b></button>`).join('') : `<div class="lempty">Sin estimados ni facturas todavía.</div>`}
+      </section>`,
+  };
   return `
-  <div class="dr-h"><button class="linkbtn back pback" data-act="close">${I.left} Proyectos</button><span class="pnum">${pnum(p)||'—'}</span><input class="title-in" data-k="name" value="${esc(p.name)}" aria-label="Nombre del proyecto" placeholder="Nombre del proyecto"><span class="pill ${P_STATUS[p.status]||''}">${esc(p.status||'')}</span><button class="icon-btn" data-act="close" aria-label="Cerrar">${I.x}</button></div>
-  <div class="dr-b">
-    <div class="tools" style="justify-content:space-between">
-      <div class="legend-edit"><i></i> Celdas amarillas = editar. Las blancas se calculan solas.</div>
-      <div class="tools"><label class="f" style="min-width:170px"><span hidden>Mes</span><select class="in" data-k="month">${monthOptions(p.month)}</select></label>
-      <button class="btn sm" data-act="est-from-project">${I.est} Estimado</button><button class="btn sm primary" data-act="inv-from-project">${I.inv} Factura</button></div>
+  <div class="dr-h pj-h"><button class="linkbtn back pback" data-act="close">${I.left} Proyectos</button><span class="pnum">${pnum(p)||'—'}</span><input class="title-in" data-k="name" value="${esc(p.name)}" aria-label="Nombre del proyecto" placeholder="Nombre del proyecto"><button class="icon-btn" data-act="close" aria-label="Cerrar">${I.x}</button></div>
+  <div class="dr-b pj-b">
+    <div class="pj-meta">
+      <div class="pj-meta-l">
+        <label class="mini"><span>Estado</span><select class="in" data-k="status">${Object.keys(P_STATUS).map(x=>`<option ${x===p.status?'selected':''}>${x}</option>`).join('')}</select></label>
+        <label class="mini"><span>Mes</span><select class="in" data-k="month">${monthOptions(p.month)}</select></label>
+        <span class="pj-who">${esc([clientName(p.clientId)||p.owner, p.location].filter(Boolean).join(' · '))}</span>
+      </div>
+      <div class="tools"><button class="btn sm" data-act="est-from-project">${I.est} Estimado</button><button class="btn sm primary" data-act="inv-from-project">${I.inv} Factura</button></div>
     </div>
-    <div class="ptab">
-      <div class="pcol">
-        <section class="psec"><h3>Información del proyecto</h3>
-          ${kv('Proyecto', `<b>${esc(p.name||'—')}</b>`)}
-          ${kv('Tipo de trabajo', inp('type','text','Ej. Shower'))}
-          ${kv('Cliente', `<select class="in" data-k="clientId">${clientOpts}</select>`)}
-          ${kv('Owner', inp('owner','text','Nombre del dueño'))}
-          ${kv('Ubicación', inp('location','text','Dirección o zona'))}
-          ${kv('Fecha de inicio', inp('start','date'))}
-          ${kv('Fecha de terminación', inp('end','date'))}
-          ${kv('Estado', `<select class="in" data-k="status">${Object.keys(P_STATUS).map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select>`)}
-          ${kv('Progreso del trabajo', `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><div class="prog" style="flex:1;max-width:120px"><i style="width:${c.progress*100}%"></i></div>${calc('progress')}</div>`)}
-        </section>
-        <section class="psec"><h3>Cobros al cliente</h3>
-          ${kv('Costo total (precio al cliente)', inp('price','money','0'))}
-          ${kv('Down payment', inp('down','money','0'))}
-          ${kv('Fecha del down', inp('downDate','date'))}
-          ${kv('Pagos adicionales', calc('extra'))}
-          ${kv('Total cobrado', calc('cobrado'),'strong')}
-          ${kv('Falta por cobrar', calc('falta'),'strong')}
-          ${kv('% cobrado', calc('pct'))}
-        </section>
-        <section class="psec"><h3>Gastos</h3>
-          ${kv('Compras / materiales', calc('compras'))}
-          ${kv('Subcontratistas – costo total', calc('subCost'))}
-          ${kv('Subcontratistas – ya pagado', calc('subPaid'))}
-          ${kv('Subcontratistas – falta pagar', calc('subFalta'))}
-          ${kv('TOTAL GASTOS (compras + subs)', calc('gastos'),'strong')}
-        </section>
-        <section class="psec"><h3>Ganancia</h3>
-          ${kv('Ganancia anotada (solo si no hay costo)', inp('profitNote','money','0'))}
-          ${kv('GANANCIA NETA', calc('ganancia', c.ganancia<0?'neg':''),'big')}
-          ${kv('Margen de ganancia', calc('margen'))}
-          ${kv('Efectivo neto hoy (cobrado − pagado)', calc('efectivo'))}
-        </section>
-      </div>
-      <div class="pcol">
-        <section class="psec"><h3>Pagos recibidos del cliente (después del down)</h3>
-          <div class="ptbl">
-            <div class="ptr hd r-pay"><span>Fecha</span><span>Monto</span><span>Nota</span><span></span></div>
-            ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Nota')}${del('payments',i)}</div>`).join('')}
-            <div class="ptr tot r-pay"><span>TOTAL</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
-          </div>
-          <div><button class="btn sm" data-act="row-add" data-list="payments">${I.plus} Agregar pago</button></div>
-        </section>
-        <section class="psec"><h3>Subcontratistas</h3>
-          <div class="ptbl">
-            <div class="ptr hd r-sub"><span>Nombre</span><span>Tipo de trabajo</span><span>Costo acordado</span><span>Pagado</span><span>Fecha pago</span><span>Falta pagar</span><span></span></div>
-            ${subs.map((r,i)=>`<div class="ptr r-sub">${li('subs',i,'name',r.name,'text','Nombre')}${li('subs',i,'work',r.work,'text','Trabajo')}${li('subs',i,'cost',r.cost,'money','0')}${li('subs',i,'paid',r.paid,'money','0')}${li('subs',i,'date',r.date,'date')}<span class="calc" data-calc="subfalta-${i}">${fmt(N(r.cost)-N(r.paid),1)}</span>${del('subs',i)}</div>`).join('')}
-            <div class="ptr tot r-sub"><span>TOTAL</span><span></span><b data-calc="subCost">${c.subCostTxt}</b><b data-calc="subPaid">${c.subPaidTxt}</b><span></span><b data-calc="subFalta">${c.subFaltaTxt}</b><span></span></div>
-          </div>
-          <div><button class="btn sm" data-act="row-add" data-list="subs">${I.plus} Agregar subcontratista</button></div>
-        </section>
-        <section class="psec"><h3>Compras / materiales</h3>
-          <div class="ptbl">
-            <div class="ptr hd r-buy"><span>Fecha</span><span>Qué se compró</span><span>Tienda</span><span>Monto</span><span>Nota</span><span></span></div>
-            ${buys.map((r,i)=>`<div class="ptr r-buy">${li('purchases',i,'date',r.date,'date')}${li('purchases',i,'item',r.item,'text','Material')}${li('purchases',i,'store',r.store,'text','Tienda')}${li('purchases',i,'amount',r.amount,'money','0')}${li('purchases',i,'note',r.note,'text','Nota')}${del('purchases',i)}</div>`).join('')}
-            <div class="ptr tot r-buy"><span>TOTAL</span><span></span><span></span><b data-calc="compras">${c.comprasTxt}</b><span></span><span></span></div>
-          </div>
-          ${linkedExp(p)}
-          <div class="dr-actions"><button class="btn sm" data-act="row-add" data-list="purchases">${I.plus} Agregar compra</button><button class="btn sm" data-act="new-expense" data-project="${p.id}">${I.camera} Gasto con recibo</button></div>
-        </section>
-      </div>
+    <div class="pj-kpis">
+      <div class="kpi"><span>Precio</span><b class="num">${c.price?fmt(c.price,1):'—'}</b></div>
+      <div class="kpi"><span>Cobrado</span><b class="num" data-calc="cobrado">${c.cobradoTxt}</b><div class="prog"><i style="width:${Math.min(100,c.pctCobrado*100)}%"></i></div></div>
+      <div class="kpi"><span>Falta cobrar</span><b class="num" data-calc="falta">${c.faltaTxt}</b></div>
+      <div class="kpi"><span>Gastos</span><b class="num" data-calc="gastos">${c.gastosTxt}</b></div>
+      <div class="kpi hl"><span>Ganancia neta</span><b class="num ${c.ganancia<0?'neg':''}" data-calc="ganancia">${c.gananciaTxt}</b><small><span data-calc="margen">${c.margenTxt}</span> de margen</small></div>
     </div>
-    <section class="psec"><h3>Qué falta</h3>
-      <div class="ptbl">
-        <div class="ptr hd r-task"><span>Tarea / qué falta</span><span>Estado</span><span>Notas</span><span></span></div>
-        ${tasks.map((r,i)=>`<div class="ptr r-task">${li('tasks',i,'text',r.text,'text','Tarea')}<select class="in" data-list="tasks" data-i="${i}" data-k="status">${T_STATUS.map(s=>`<option ${s===(r.status||'Pendiente')?'selected':''}>${s}</option>`).join('')}</select>${li('tasks',i,'notes',r.notes,'text','Notas')}${del('tasks',i)}</div>`).join('')}
-      </div>
-      <div><button class="btn sm" data-act="row-add" data-list="tasks">${I.plus} Agregar tarea</button></div>
-    </section>
-    <section class="psec"><h3>Notas</h3><textarea class="in" data-k="notes" rows="4" placeholder="Notas del proyecto">${esc(p.notes)}</textarea>${notesMic()}${linkify(p.notes)}</section>
-    <section class="psec"><h3>Estimados y facturas</h3>
-      ${[...ests.map(e=>['estimates',e,'Estimado',estStatus(e)]), ...invs.map(i=>['invoices',i,'Factura',invStatus(i)])].map(([cl,d,lab,s])=>`<button class="btn ghost" style="justify-content:space-between;width:100%" data-open="${cl}:${d.id}"><span>${lab} ${esc(d.number)}</span><span style="display:flex;gap:8px;align-items:center"><b class="num">${fmt(docTotals(d).total,1)}</b><span class="pill ${s[1]}">${s[0]}</span></span></button>`).join('') || '<span class="muted">Sin estimados ni facturas todavía.</span>'}
-    </section>
-    <div class="dr-actions">${delBlock()}</div>
+    <div class="tabs pj-tabs" role="tablist">${TABS.map(([k,l,n])=>`<button role="tab" aria-selected="${tab===k}" data-act="pj-tab" data-v="${k}">${l}${n?`<span class="cnt">${n}</span>`:''}</button>`).join('')}</div>
+    <div class="pj-body">${(body[tab]||body.resumen)()}</div>
   </div>`;
 }
 function linkify(t){ const urls = String(t||'').match(/https?:\/\/[^\s)]+/g); return urls ? `<div class="dr-actions">${urls.map(u=>`<a class="btn sm" href="${esc(u)}" target="_blank" rel="noopener">${I.link} Abrir link</a>`).join('')}</div>` : ''; }
@@ -1484,6 +1614,8 @@ async function newDoc(kind, base={}, save=false){
 async function act(name, el){
   const o = cur(); const coll = ctxColl();
   switch(name){
+    case 'more-menu': return moreMenu();
+    case 'pj-tab': if (S.drawer){ const o2 = S[S.drawer.coll][S.drawer.id]; if (o2) persist(S.drawer.coll, o2, true); S.drawer.tab = el.dataset.v; renderDrawer(); const bb = $('.dr-b'); if (bb) bb.scrollTop = 0; } return;
     case 'doc-back': return go(S.doc?.coll==='invoices'?'facturas':'estimados');
     case 'ai-go': return aiRun();
     case 'ai-answer': return aiRun(true);
