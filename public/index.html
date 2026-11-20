@@ -414,6 +414,20 @@ details.menu > summary::-webkit-details-marker{display:none}
 .pc-list{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto}
 .pc-item{display:flex;gap:10px;align-items:center;border:0;background:none;padding:8px;border-radius:8px;cursor:pointer;color:var(--ink)}
 .pc-item:hover{background:var(--surface-2)}
+.pc-item.pc-sub{margin-left:46px;padding:6px 10px;font-size:13px;color:var(--ink-2);border-left:2px solid var(--line);border-radius:0 8px 8px 0;text-align:left}
+.pc-count{margin-left:56px;font-size:12px;color:var(--ink-3);display:block;margin-top:-4px;margin-bottom:4px}
+.pp-pin svg{width:16px;height:16px;color:var(--ink-3)}
+.pp-new{display:flex;gap:8px;margin-top:10px}
+.pp-new .in{flex:1;min-width:0}
+.pp-link{align-self:flex-start;font-size:13px;margin-top:-4px}
+.cp-list{display:flex;flex-direction:column;max-height:340px;overflow:auto}
+.cp-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.cp-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.cp-sp{width:30px}
+.cl-props{max-width:320px}
+.cl-prop{display:block;border:0;background:none;padding:2px 0;text-align:left;color:var(--ink-2);font-size:13px;cursor:pointer}
+.cl-prop:hover{color:var(--accent);text-decoration:underline}
+.cl-props small{display:block;font-size:11.5px}
 
 /* Project page = sheet tab */
 .pnum{font-family:var(--f-display);font-weight:800;font-size:13px;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:4px 8px}
@@ -1775,6 +1789,10 @@ function drClient(c){
   <div class="dr-b">
     <div class="stats"><div><span class="label">Por cobrar</span><b>${fmt(m.balance,1)}</b></div><div><span class="label">Vencido</span><b class="${m.overdue?'neg':''}">${fmt(m.overdue,1)}</b></div><div><span class="label">Pagado en total</span><b>${fmt(m.paid,1)}</b></div></div>
     <div class="dr-actions"><button class="btn primary" data-act="est-for-client">${I.est} Nuevo estimado</button><button class="btn" data-act="inv-for-client">${I.inv} Nueva factura</button>${c.email?`<button class="btn" data-act="mail-client">${I.mail} Escribir email</button>`:''}</div>
+    <section class="sec"><div class="sec-h"><h3>Propiedades (${clientProps(c).length})</h3></div>
+      <div class="cp-list">${clientProps(c).map(x=>`<div class="cp-row"><span>${esc(x)}</span><span class="cp-btns"><button class="btn sm" data-act="est-for-prop" data-prop="${esc(x)}">Estimado</button><button class="btn sm" data-act="inv-for-prop" data-prop="${esc(x)}">Factura</button>${(c.properties||[]).includes(x)?`<button class="icon-btn" data-act="prop-del" data-prop="${esc(x)}" aria-label="Quitar propiedad">${I.x}</button>`:'<span class="cp-sp"></span>'}</span></div>`).join('') || '<span class="muted">Todavía no hay propiedades guardadas.</span>'}</div>
+      <div class="pp-new"><input class="in" id="cp-new" placeholder="Agregar otra propiedad (dirección)"><button class="btn" data-act="prop-add">${I.plus} Agregar</button></div>
+    </section>
     <section class="sec"><div class="sec-h"><h3>Contacto</h3></div><div class="fgrid">
       ${field('Nombre del contacto','contactFirst',c.contactFirst)}${field('Apellido del contacto','contactLast',c.contactLast)}
       ${field('Email','email',c.email,'email')}${field('Teléfono','phone',c.phone,'tel')}
@@ -1789,7 +1807,6 @@ function drClient(c){
       <label class="f"><span>¿Dónde se hace el trabajo?</span><select class="in" data-k="shipSame"><option value="" ${c.shipSame===''||c.shipSame==null?'selected':''}>Igual que la de facturación</option><option value="no" ${c.shipSame==='no'?'selected':''}>Otra dirección</option></select></label>
       ${c.shipSame==='no'?`<div class="fgrid">${field('Dirección del trabajo','shipAddress',c.shipAddress,'text','full')}${field('Ciudad','shipCity',c.shipCity)}<div class="fgrid" style="grid-template-columns:1fr 1fr">${field('Estado','shipState',c.shipState)}${field('ZIP','shipZip',c.shipZip)}</div></div>`:''}
     </section>
-    ${(c.properties||[]).length?`<section class="sec"><div class="sec-h"><h3>Propiedades (${c.properties.length})</h3></div><div class="rows">${c.properties.map(p=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:6px"><span>${esc(p)}</span><button class="btn sm ghost" data-act="est-for-prop" data-prop="${esc(p)}">Estimado aquí</button></div>`).join('')}</div></section>`:''}
     ${N(c.waveBalance)?`<div class="note warn">Saldo pendiente en Wave: <b>${fmt(c.waveBalance,1)}</b>${N(c.waveOverdue)?` (vencido ${fmt(c.waveOverdue,1)})`:''}. Cóbralo o pásalo a una factura en Kuadra antes de cerrar Wave.</div>`:''}
     <section class="sec"><div class="sec-h"><h3>Notas</h3></div><textarea class="in" data-k="notes">${esc(c.notes)}</textarea>${notesMic()}</section>
     <section class="sec"><div class="sec-h"><h3>Facturas</h3></div>${m.invs.sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(d=>docRow('invoices',d)).join('')||'<span class="muted">Sin facturas.</span>'}</section>
@@ -1931,7 +1948,13 @@ async function act(name, el){
     case 'edit-client': return openDrawer('clients', el.dataset.id);
     case 'pick-client': return pickClientModal();
     case 'pick-new-client': closeModal(); return quickClientModal(coll, o.id);
-    case 'pick-client-id': { const c = S.clients[el.dataset.id]; o.clientId = c.id; if (!o.property) o.property = jobAddr(c); persist(coll, o, true); closeModal(); renderDrawer(); return; }
+    case 'pick-client-id': { const c = S.clients[el.dataset.id]; if (el.dataset.prop){ o.clientId = c.id; o.property = el.dataset.prop; persist(coll, o, true); closeModal(); renderDrawer(); return; } if (clientProps(c).length>1){ closeModal(); return propModal(c.id, {kind:'doc'}); } o.clientId = c.id; if (!o.property) o.property = jobAddr(c); persist(coll, o, true); closeModal(); renderDrawer(); return; }
+    case 'prop-pick': return propChosen(el.dataset.prop);
+    case 'prop-pick-new': return propChosen($('#pp-new').value);
+    case 'prop-choose': if (o?.clientId) return propModal(o.clientId, {kind:'doc'}); return;
+    case 'prop-add': { const v = ($('#cp-new')?.value||'').trim(); if (!v) return; rememberProp(o.id, v); renderDrawer(); toast('Propiedad agregada'); return; }
+    case 'prop-del': { o.properties = (o.properties||[]).filter(x=>x!==el.dataset.prop); persist('clients', o, true); renderDrawer(); return; }
+    case 'inv-for-prop': return newDoc('invoices', {clientId:o.id, property:el.dataset.prop});
     case 'add-disc': o.showDisc = '1'; o.discType = o.discType || '$'; persist(coll,o); renderDrawer('[data-k="discount"]'); return;
     case 'rm-disc': o.showDisc = ''; o.discount = ''; persist(coll,o); renderDrawer(); return;
     case 'add-markup': o.useMarkup = '1'; o.markup = N(o.markup)||N(S.settings.markup)||15; persist(coll,o); renderDrawer(); return;
@@ -1983,9 +2006,9 @@ async function act(name, el){
     case 'doc-tab': S[el.dataset.key] = el.dataset.v; return renderView();
     case 'proj-tab': S.projTab = el.dataset.v; return renderView();
     case 'sum-month': S.sumMonth = el.dataset.v; return renderView();
-    case 'inv-for-client': return newDoc('invoices', {clientId:o.id});
+    case 'inv-for-client': return newDocFor('invoices', o.id);
     case 'est-for-prop': return newDoc('estimates', {clientId:o.id, property:el.dataset.prop});
-    case 'row-est-client': return newDoc('estimates', {clientId:el.dataset.id});
+    case 'row-est-client': return el.dataset.prop ? newDoc('estimates', {clientId:el.dataset.id, property:el.dataset.prop}) : newDocFor('estimates', el.dataset.id);
     case 'row-convert': { const e = S.estimates[el.dataset.id]; if (e) await convertEstimate(e); return; }
     case 'row-del-ask': { const k = S.view==='facturas'?'invoices':'estimates'; const d = S[k][el.dataset.id]; if (!d) return;
       const paid = k==='invoices' && (d.payments||[]).length;
@@ -2046,7 +2069,7 @@ async function act(name, el){
       const desc = kind==='invoices' && c.cobrado>0 ? `${p.name} — saldo pendiente` : `${p.name}${p.type?' — '+p.type:''}`;
       return newDoc(kind, {clientId:p.clientId||'', projectId:p.id, items:[{desc, qty:1, rate: amt||''}]});
     }
-    case 'est-for-client': return newDoc('estimates', {clientId:o.id});
+    case 'est-for-client': return newDocFor('estimates', o.id);
     case 'est-to-inv': { if (!o.clientId){ toast('Elige un cliente antes de convertir'); return; } await convertEstimate(o); return; }
     case 'est-to-project': {
       const t = docTotals(o); const cl = S.clients[o.clientId]; const areas = areasOf(o);
@@ -2527,6 +2550,7 @@ function docEdit(d, coll, isInv){
           ${custBox(d, isInv)}
           <label class="f"><span>Dirección del trabajo (Property)</span><input class="in plain" data-k="property" list="props" placeholder="Dirección donde se hace el trabajo" value="${esc(d.property||'')}"></label>
           <datalist id="props">${props.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
+          ${props.length>1?`<button type="button" class="linkbtn pp-link" data-act="prop-choose">Elegir entre las ${props.length} propiedades de este cliente</button>`:''}
           <label class="f"><span>Proyecto</span><select class="in plain" data-k="projectId">${projOpts}</select></label>
         </div>
         <div class="dp-meta">
@@ -2627,6 +2651,29 @@ function docView(d, coll, isInv){
     <div class="doc-danger"><button class="btn ghost danger" data-act="doc-del-ask">${I.trash} Eliminar ${docLabel(coll)}</button></div>
   </div>`;
 }
+/* A client can own many properties: list them, search them, pick one */
+function clientProps(c){ if (!c) return []; const seen = new Set(), out = []; [jobAddr(c), ...(c.properties||[])].forEach(x=>{ const v=String(x||'').trim(); const k=v.toLowerCase(); if (v && !seen.has(k)){ seen.add(k); out.push(v); } }); return out; }
+function rememberProp(clientId, prop){ const c = S.clients[clientId]; prop = String(prop||'').trim(); if (!c || !prop) return; if (clientProps(c).some(x=>x.toLowerCase()===prop.toLowerCase())) return; (c.properties ||= []).push(prop); persist('clients', c, true); }
+function propModal(clientId, then){
+  const c = S.clients[clientId]; if (!c) return; S.propPick = {clientId, then};
+  openModal(`Propiedades de ${esc(c.name)}`, `<label class="search" style="display:block"><span hidden>Buscar dirección</span>${I.search}<input class="in plain" id="pp-q" style="width:100%" placeholder="Buscar dirección" oninput="renderPropList(this.value)"></label><div id="pp-list" class="pc-list"></div>
+    <div class="pp-new"><input class="in plain" id="pp-new" placeholder="Otra dirección (propiedad nueva)"><button class="btn" data-act="prop-pick-new">Usar esta</button></div>`,
+    `<button class="btn" data-act="modal-close">Cancelar</button>`);
+  renderPropList(''); setTimeout(()=>$('#pp-q')?.focus(), 50);
+}
+function renderPropList(q){
+  const el = $('#pp-list'), c = S.clients[S.propPick?.clientId]; if (!el || !c) return; q = (q||'').toLowerCase().trim();
+  const ps = clientProps(c).filter(x=>!q || x.toLowerCase().includes(q));
+  el.innerHTML = ps.map(x=>`<button class="pc-item" data-act="prop-pick" data-prop="${esc(x)}"><span class="pp-pin">${I.home||I.panel}</span><b style="text-align:left">${esc(x)}</b></button>`).join('') || '<p class="muted" style="padding:10px">No hay propiedades con esa dirección. Escríbela abajo para agregarla.</p>';
+}
+async function propChosen(prop){
+  const pk = S.propPick; if (!pk) return; prop = String(prop||'').trim(); if (!prop) return;
+  rememberProp(pk.clientId, prop); closeModal(); S.propPick = null;
+  if (pk.then.kind==='new') return newDoc(pk.then.coll, {clientId:pk.clientId, property:prop});
+  if (pk.then.kind==='doc'){ const o = cur(); if (o){ o.clientId = pk.clientId; o.property = prop; persist(ctxColl(), o, true); renderDrawer(); } }
+}
+// new estimate / invoice for a client: ask which property when there are several
+function newDocFor(coll, clientId){ const c = S.clients[clientId]; if (clientProps(c).length>1) return propModal(clientId, {kind:'new', coll}); return newDoc(coll, {clientId}); }
 function pickClientModal(){
   openModal('Elegir cliente', `<label class="search" style="display:block"><span hidden>Buscar cliente</span>${I.search}<input class="in plain" id="pc-q" style="width:100%" placeholder="Buscar por nombre, email o dirección" oninput="renderPickList(this.value)"></label><div id="pc-list" class="pc-list"></div>`,
     `<button class="btn" data-act="modal-close">Cancelar</button><button class="btn primary" data-act="pick-new-client">${I.plus} Crear cliente nuevo</button>`);
@@ -2636,7 +2683,7 @@ function renderPickList(q){
   q = (q||'').toLowerCase().trim();
   const cs = list('clients').filter(c=>!q || [c.name,c.email,c.address,c.contactFirst,c.contactLast,c.company,...(c.properties||[])].join(' ').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
   const el = $('#pc-list'); if (!el) return;
-  el.innerHTML = cs.slice(0,60).map(c=>`<button class="pc-item" data-act="pick-client-id" data-id="${c.id}"><span class="avatar">${esc((c.name||'?').trim()[0]?.toUpperCase()||'?')}</span><span style="min-width:0;text-align:left"><b>${esc(c.name)}</b><small class="muted" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([c.email, plainAddr(c)].filter(Boolean).join(' · '))}</small></span></button>`).join('') + (cs.length>60?`<p class="muted" style="font-size:12px;padding:6px">Mostrando 60 de ${cs.length}. Escribe para buscar.</p>`:'') + (cs.length?'':'<p class="muted" style="padding:10px">No hay clientes con ese nombre.</p>');
+  el.innerHTML = cs.slice(0,60).map(c=>`<button class="pc-item" data-act="pick-client-id" data-id="${c.id}"><span class="avatar">${esc((c.name||'?').trim()[0]?.toUpperCase()||'?')}</span><span style="min-width:0;text-align:left"><b>${esc(c.name)}</b><small class="muted" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc([c.email, plainAddr(c)].filter(Boolean).join(' · '))}</small></span></button>${(()=>{ const ps = clientProps(c); if (ps.length<2) return ''; const m = q ? ps.filter(x=>x.toLowerCase().includes(q)) : []; return m.slice(0,4).map(x=>`<button class="pc-item pc-sub" data-act="pick-client-id" data-id="${c.id}" data-prop="${esc(x)}">${esc(x)}</button>`).join('') + (m.length?'':`<span class="pc-count">${ps.length} propiedades</span>`); })()}`).join('') + (cs.length>60?`<p class="muted" style="font-size:12px;padding:6px">Mostrando 60 de ${cs.length}. Escribe para buscar.</p>`:'') + (cs.length?'':'<p class="muted" style="padding:10px">No hay clientes con ese nombre.</p>');
 }
 async function saveDoc(){
   const D = S.doc; if (!D || D.mode!=='edit') return null;
@@ -2644,6 +2691,7 @@ async function saveDoc(){
   if (!d.clientId){ toast('Agrega un cliente antes de guardar'); return null; }
   if (D.isNew) await nextNumber(D.coll==='invoices'?'inv':'est');
   const saved = structuredClone(d);
+  rememberProp(saved.clientId, saved.property);
   learnItems(saved);
   S.doc = {coll:D.coll, id:saved.id, mode:'view'};
   persist(D.coll, saved, true);
@@ -3375,14 +3423,14 @@ async function openThread(id){
 /* ---------- Clients (Wave-style customer list) ---------- */
 function vClients(){
   const q = (S.cliQ||'').toLowerCase();
-  const cs = list('clients').sort((a,b)=>a.name.localeCompare(b.name)).filter(c=>!q || [c.name,c.email,c.phone,c.city,c.contactFirst,c.contactLast].join(' ').toLowerCase().includes(q));
+  const cs = list('clients').sort((a,b)=>a.name.localeCompare(b.name)).filter(c=>!q || [c.name,c.email,c.phone,c.city,c.contactFirst,c.contactLast,c.company,c.address,c.shipAddress,...(c.properties||[])].join(' ').toLowerCase().includes(q));
   const tot = list('clients').reduce((a,c)=>{const m=clientMoney(c.id); a.b+=m.balance; a.o+=m.overdue; return a;},{b:0,o:0});
   return `
   <div class="head"><div><h1>Clientes</h1><p>${list('clients').length} cliente${list('clients').length===1?'':'s'} · Por cobrar ${fmt(tot.b,1)}${tot.o?` · <span style="color:var(--bad)">Vencido ${fmt(tot.o,1)}</span>`:''}</p></div><div class="tools"><button class="btn primary" data-act="new-client">${I.plus} Agregar cliente</button></div></div>
   ${loading()? loadingBlock('tus clientes') : `<section class="card">
-    <div class="tabbar-in"><span class="muted" style="font-size:13px">Toca un cliente para ver o editar sus datos</span><label class="search"><span hidden>Buscar</span>${I.search}<input class="in plain" id="cliq" placeholder="Buscar nombre, email, teléfono" value="${esc(S.cliQ||'')}"></label></div>
-    ${cs.length? `<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th class="n">Por cobrar</th><th class="n">Vencido</th><th></th></tr></thead>
-    <tbody>${cs.map(c=>{const m=clientMoney(c.id); return `<tr class="click" data-open="clients:${c.id}"><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">${esc((c.name||'?').trim()[0]?.toUpperCase()||'?')}</span><div><b>${esc(c.name)}</b>${[c.contactFirst,c.contactLast].filter(Boolean).length?`<div class="muted" style="font-size:12px">${esc([c.contactFirst,c.contactLast].filter(Boolean).join(' '))}</div>`:''}</div></div></td><td>${c.email?esc(c.email):'<span class="pill warn">Falta</span>'}</td><td>${esc(c.phone||c.mobile||'—')}</td><td class="muted">${esc(c.city||'—')}</td><td class="n">${m.balance?fmt(m.balance,1):'—'}</td><td class="n" style="color:${m.overdue?'var(--bad)':'inherit'}">${m.overdue?fmt(m.overdue,1):'—'}</td><td class="n"><button class="btn sm" data-act="row-est-client" data-id="${c.id}">Estimado</button></td></tr>`}).join('')}</tbody></table></div>`
+    <div class="tabbar-in"><span class="muted" style="font-size:13px">Toca un cliente para ver o editar sus datos</span><label class="search"><span hidden>Buscar</span>${I.search}<input class="in plain" id="cliq" placeholder="Buscar nombre, dirección, email, teléfono" value="${esc(S.cliQ||'')}"></label></div>
+    ${cs.length? `<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Email</th><th>Teléfono</th><th>Propiedades</th><th class="n">Por cobrar</th><th class="n">Vencido</th><th></th></tr></thead>
+    <tbody>${cs.map(c=>{const m=clientMoney(c.id); return `<tr class="click" data-open="clients:${c.id}"><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">${esc((c.name||'?').trim()[0]?.toUpperCase()||'?')}</span><div><b>${esc(c.name)}</b>${[c.contactFirst,c.contactLast].filter(Boolean).length?`<div class="muted" style="font-size:12px">${esc([c.contactFirst,c.contactLast].filter(Boolean).join(' '))}</div>`:''}</div></div></td><td>${c.email?esc(c.email):'<span class="pill warn">Falta</span>'}</td><td>${esc(c.phone||c.mobile||'—')}</td><td class="cl-props">${(()=>{ const ps = clientProps(c); if (!ps.length) return '<span class="muted">—</span>'; const m = q ? ps.filter(x=>x.toLowerCase().includes(q)) : []; const nameHit = q && (c.name||'').toLowerCase().includes(q); const show = m.length ? m : (nameHit ? ps : ps.slice(0,1)); const lim = q ? 8 : 1; return show.slice(0,lim).map(x=>`<button class="cl-prop" data-act="row-est-client" data-id="${c.id}" data-prop="${esc(x)}" title="Crear estimado para esta propiedad">${esc(x)}</button>`).join('') + (ps.length>Math.min(show.length,lim)?`<small class="muted">${q&&show.length>lim?`y ${show.length-lim} más · `:''}${ps.length} propiedades en total</small>`:''); })()}</td><td class="n">${m.balance?fmt(m.balance,1):'—'}</td><td class="n" style="color:${m.overdue?'var(--bad)':'inherit'}">${m.overdue?fmt(m.overdue,1):'—'}</td><td class="n"><button class="btn sm" data-act="row-est-client" data-id="${c.id}">Estimado</button></td></tr>`}).join('')}</tbody></table></div>`
     : `<div class="empty"><h3>${list('clients').length?'No hay coincidencias':'Aún no hay clientes'}</h3><span>Guarda el nombre, email, teléfono y dirección de cada cliente para enviarle estimados y facturas.</span>${list('clients').length?'':`<button class="btn primary" data-act="new-client">${I.plus} Agregar cliente</button>`}</div>`}
   </section>`}`;
 }
@@ -3427,7 +3475,7 @@ function quickModal(){
         <label class="f"><span>Email del cliente</span><input class="in plain" id="qs-email" type="email" placeholder="cliente@email.com" autocomplete="off"></label>
       </div>
       <datalist id="qs-clients">${list('clients').sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist>
-      <label class="f"><span>Dirección del trabajo (opcional)</span><input class="in plain" id="qs-prop" placeholder="Dirección" autocomplete="off"></label>
+      <label class="f"><span>Dirección del trabajo (opcional)</span><input class="in plain" id="qs-prop" list="qs-props" placeholder="Dirección" autocomplete="off"></label><datalist id="qs-props"></datalist>
       <label class="f"><span>Servicio (en inglés, así lo ve el cliente)</span><input class="in plain" id="qs-desc" placeholder="Ej. Service call, Drywall patch" autocomplete="off"></label>
       <div id="qs-sug" class="qs-sug"></div>
       <label class="f"><span>Monto a cobrar</span><input class="in plain n" id="qs-amt" inputmode="decimal" placeholder="0.00"></label>
@@ -3447,7 +3495,7 @@ function quickSuggest(){
 }
 $('#modal').addEventListener('input', e => {
   if (e.target.id==='qs-desc') quickSuggest();
-  if (e.target.id==='qs-client'){ const c = list('clients').find(x=>(x.name||'').toLowerCase()===e.target.value.trim().toLowerCase()); if (c){ if (c.email) $('#qs-email').value = c.email; const a = jobAddr(c); if (a && !$('#qs-prop').value) $('#qs-prop').value = a; } }
+  if (e.target.id==='qs-client'){ const c = list('clients').find(x=>(x.name||'').toLowerCase()===e.target.value.trim().toLowerCase()); if (c){ if (c.email) $('#qs-email').value = c.email; const ps = clientProps(c); $('#qs-props').innerHTML = ps.map(x=>`<option value="${esc(x)}">`).join(''); if (ps.length===1 && !$('#qs-prop').value) $('#qs-prop').value = ps[0]; $('#qs-prop').placeholder = ps.length>1 ? `Elige entre sus ${ps.length} propiedades o escribe otra` : 'Dirección'; } }
 });
 async function quickSave(send){
   const msg = t => { $('#qs-msg').innerHTML = `<div class="note bad">${t}</div>`; };
@@ -3465,6 +3513,7 @@ async function quickSave(send){
     else if (email && c.email!==email && !c.email){ c.email = email; persist('clients', c, true); }
     if ($('#qs-keep').checked){ const it = list('items').find(x=>(x.name||'').toLowerCase()===desc.toLowerCase()); if (it){ it.quick='1'; it.price=amt; persist('items', it, true); } else persist('items', {id:uid('it'), name:desc, area:'', desc:'', price:amt, quick:'1', createdAt:new Date().toISOString()}, true); }
     const extra = $('#qs-notes').value.trim();
+    rememberProp(c.id, prop);
     const d = await newDoc('invoices', {clientId:c.id, property:prop||jobAddr(c)||'', summary:desc, quick:'1', cost: cost||'', terms:'0', due:todayISO(), items:[{area:'', desc: extra? desc+' - '+extra : desc, qty:1, rate:amt}], showArea:''}, true, true);
     if (email && c.email!==email) d.sendTo = email;
     closeModal(); renderView(); render();
