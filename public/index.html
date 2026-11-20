@@ -582,6 +582,23 @@ button.lrow:hover{background:var(--surface-2)}
 .pj-tabs::-webkit-scrollbar{display:none}
 .pj-tabs button{white-space:nowrap}
 .pj-body{display:flex;flex-direction:column;gap:16px}
+.lg-two{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:16px;align-items:start}
+.lg-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.pj-card > h3.lg-h{background:#0B1B33;color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 16px}
+.lg-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,170px);align-items:center;gap:10px;padding:6px 16px;min-height:44px;border-bottom:1px solid var(--line);font-size:14px}
+.lg-row:last-child{border-bottom:0}
+.lg-row > span{color:var(--ink-2);display:flex;flex-direction:column;gap:1px;min-width:0}
+.lg-row > span small{font-size:11.5px;color:var(--ink-3);font-weight:400}
+.lg-row > div{text-align:right;min-width:0}
+.lg-row .in{width:100%;text-align:right}
+.lg-row select.in,.lg-row .in[type=text]:not(.n){text-align:left}
+.lg-row.tot{background:var(--surface-2)}
+.lg-row.tot > span{font-weight:700;color:var(--ink)}
+.lg-row.tot .calcv{font-weight:700}
+.lg-row.big .calcv{font-size:18px}
+.lg-row .calcv.neg{color:var(--bad)}
+@media (max-width:1100px){.lg-two{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.lg-row{grid-template-columns:minmax(0,1fr) minmax(0,140px);padding:6px 12px}}
 .pj-two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
 .pj-card{overflow:hidden;display:flex;flex-direction:column}
 .pj-card > h3{padding:16px 18px 10px}
@@ -1469,7 +1486,7 @@ const pnum = p => p.num ? String(p.num).padStart(2,'0') : '';
 function projCalcs(p){
   const c = pc(p);
   return { ...c,
-    progressTxt: pct(c.progress), extraTxt: fmt(c.extra,1), cobradoTxt: fmt(c.cobrado,1), faltaTxt: c.price?fmt(c.falta,1):'—', pctTxt: pct(c.pctCobrado),
+    progressTxt: pct(c.progress), priceTxt: c.price?fmt(c.price,1):'—', extraTxt: fmt(c.extra,1), cobradoTxt: fmt(c.cobrado,1), faltaTxt: c.price?fmt(c.falta,1):'—', pctTxt: pct(c.pctCobrado),
     comprasTxt: fmt(c.compras,1), subCostTxt: fmt(c.subCost,1), subPaidTxt: fmt(c.subPaid,1), subFaltaTxt: fmt(c.subFalta,1), gastosTxt: fmt(c.gastos,1),
     gananciaTxt: fmt(c.ganancia,1), margenTxt: pct(c.margen), efectivoTxt: fmt(c.efectivo,1) };
 }
@@ -1480,6 +1497,8 @@ function refreshProjCalcs(p){
     if (k.startsWith('subfalta-')){ const r = (p.subs||[])[+k.slice(9)]; if (r) el.textContent = fmt(N(r.cost)-N(r.paid),1); return; }
     if (c[k+'Txt'] != null) el.textContent = c[k+'Txt'];
     if (k==='ganancia') el.classList.toggle('neg', c.ganancia<0);
+    if (k==='falta') el.classList.toggle('neg', c.price>0 && c.falta>0.004);
+    if (k==='subFalta') el.classList.toggle('neg', c.subFalta>0.004);
   });
 }
 function drProject(p){
@@ -1496,69 +1515,73 @@ function drProject(p){
   const fld = (label, inner, cls='') => `<label class="f ${cls}"><span>${label}</span>${inner}</label>`;
   const line = (label, k, cls='') => `<div class="nline ${cls}"><span>${label}</span>${calc(k, k==='ganancia'&&c.ganancia<0?'neg':'')}</div>`;
   const pend = tasks.filter(t=>(t.status||'Pendiente')!=='Completado');
-  const TABS = [['resumen','Resumen',''],['cobros','Cobros',pays.length],['subs','Subcontratistas',subs.length],['compras','Compras',buys.length],['tareas','Tareas',pend.length],['notas','Notas y documentos',ests.length+invs.length]];
+  const TABS = [['resumen','Cuentas',''],['tareas','Tareas',pend.length],['notas','Notas y documentos',ests.length+invs.length]];
+  const lg = (label, val, hint='', cls='') => `<div class="lg-row ${cls}"><span>${label}${hint?`<small>${hint}</small>`:''}</span><div>${val}</div></div>`;
+  const cv = (k, cls='') => `<b class="calcv ${cls}" data-calc="${k}">${c[k+'Txt']}</b>`;
   const docs = [...ests.map(e=>['estimates',e,'Estimado',estStatus(e)]), ...invs.map(i=>['invoices',i,'Factura',invStatus(i)])];
   const body = {
     resumen: () => `
-      <div class="pj-two">
-        <section class="card pj-card"><h3>Detalles</h3>
-          <div class="fgrid">
-            ${fld('Tipo de trabajo', inp('type','text','Ej. Shower'))}
-            ${fld('Cliente', `<select class="in" data-k="clientId">${clientOpts}</select>`)}
-            ${fld('Owner', inp('owner','text','Nombre del dueño'))}
-            ${fld('Ubicación', inp('location','text','Dirección o zona'))}
-            ${fld('Fecha de inicio', inp('start','date'))}
-            ${fld('Fecha de terminación', inp('end','date'))}
-          </div>
-        </section>
-        <section class="card pj-card"><h3>Números</h3>
-          <div class="nlist">
-            ${line('Total cobrado','cobrado')}${line('Falta por cobrar','falta')}
-            <hr>
-            ${line('Compras / materiales','compras')}${line('Subcontratistas','subCost')}${line('Total gastos','gastos','strong')}
-            <hr>
-            ${line('Ganancia neta','ganancia','strong')}${line('Margen de ganancia','margen')}${line('Efectivo neto hoy (cobrado − pagado)','efectivo')}
-          </div>
-        </section>
-      </div>
-      <section class="card pj-card"><div class="pj-card-h"><h3>Qué falta</h3><button class="linkbtn" data-act="pj-tab" data-v="tareas">${tasks.length?'Ver todas las tareas':'Agregar tareas'}</button></div>
-        ${pend.length ? `<ul class="pj-todo">${pend.slice(0,5).map(t=>`<li><span class="dot ${t.status==='Incompleto'?'warn':''}"></span><span><b>${esc(t.text||'Tarea')}</b>${t.notes?`<small>${esc(t.notes)}</small>`:''}</span></li>`).join('')}</ul>${pend.length>5?`<small class="muted" style="padding:0 16px 14px;display:block">y ${pend.length-5} más</small>`:''}`
-          : `<div class="lempty">${tasks.length?'Todas las tareas están completadas.':'Todavía no hay tareas anotadas.'}</div>`}
-      </section>
-      <div class="dr-actions">${delBlock()}</div>`,
-    cobros: () => `
-      <section class="card pj-card"><h3>Precio y down payment</h3>
-        <div class="fgrid three">
-          ${fld('Precio al cliente', inp('price','money','0'))}
-          ${fld('Down payment', inp('down','money','0'))}
-          ${fld('Fecha del down', inp('downDate','date'))}
+      <div class="lg-two">
+        <div class="lg-col">
+          <section class="card pj-card lg"><h3 class="lg-h">Información del proyecto</h3>
+            ${lg('Tipo de trabajo', inp('type','text','Ej. Shower'))}
+            ${lg('Cliente', `<select class="in" data-k="clientId">${clientOpts}</select>`)}
+            ${lg('Owner', inp('owner','text','Nombre del dueño'))}
+            ${lg('Ubicación', inp('location','text','Dirección o zona'))}
+            ${lg('Fecha de inicio', inp('start','date'))}
+            ${lg('Fecha de terminación', inp('end','date'))}
+          </section>
+          <section class="card pj-card lg"><h3 class="lg-h">Cobros al cliente</h3>
+            ${lg('Precio al cliente', inp('price','money','0'), 'Lo que cuesta el trabajo completo')}
+            ${lg('Down payment', inp('down','money','0'))}
+            ${lg('Fecha del down', inp('downDate','date'))}
+            ${lg('+ Pagos adicionales', cv('extra'), 'Suma de la tabla "Pagos recibidos"')}
+            ${lg('= Total cobrado', cv('cobrado'), 'Down payment + pagos adicionales', 'tot')}
+            ${lg('Falta por cobrar', cv('falta', c.price>0&&c.falta>0.004?'neg':''), 'Precio − total cobrado', 'tot')}
+            ${lg('% cobrado', cv('pct'))}
+          </section>
+          <section class="card pj-card lg"><h3 class="lg-h">Gastos</h3>
+            ${lg('Compras / materiales', cv('compras'), 'Suma de la tabla "Compras"')}
+            ${lg('+ Subcontratistas – costo total', cv('subCost'), 'Suma de "Costo acordado"')}
+            ${lg('= Total gastos', cv('gastos'), 'Compras + costo total de subcontratistas', 'tot')}
+            ${lg('Subcontratistas – ya pagado', cv('subPaid'))}
+            ${lg('Subcontratistas – falta pagar', cv('subFalta', c.subFalta>0.004?'neg':''), 'Costo total − ya pagado')}
+          </section>
+          <section class="card pj-card lg"><h3 class="lg-h">Ganancia</h3>
+            ${lg('Precio al cliente', cv('price'))}
+            ${lg('− Total gastos', cv('gastos'))}
+            ${lg('= Ganancia neta', cv('ganancia', c.ganancia<0?'neg':''), c.price?'Precio − total gastos':'', 'tot big')}
+            ${lg('Margen de ganancia', cv('margen'), 'Ganancia ÷ precio')}
+            ${lg('Efectivo en mano hoy', cv('efectivo'), 'Total cobrado − compras − pagado a subs')}
+            ${c.price?'':lg('Ganancia anotada', inp('profitNote','money','0'), 'Solo si el proyecto no tiene precio')}
+          </section>
         </div>
-        <div class="fgrid">${fld('Ganancia anotada (solo si el proyecto no tiene precio)', inp('profitNote','money','0'))}</div>
-      </section>
-      <section class="card pj-card"><div class="pj-card-h"><h3>Pagos recibidos después del down</h3><button class="btn sm" data-act="row-add" data-list="payments">${I.plus} Agregar pago</button></div>
-        ${pays.length ? `<div class="ptbl">
-          <div class="ptr hd r-pay"><span>Fecha</span><span>Monto</span><span>Nota</span><span></span></div>
-          ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Nota')}${del('payments',i)}</div>`).join('')}
-          <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
-        </div>` : `<div class="lempty">Sin pagos adicionales todavía. Los pagos de las facturas de este proyecto aparecen aquí solos.</div>`}
-      </section>`,
-    subs: () => `
-      <section class="card pj-card"><div class="pj-card-h"><h3>Subcontratistas</h3><button class="btn sm" data-act="row-add" data-list="subs">${I.plus} Agregar subcontratista</button></div>
-        ${subs.length ? `<div class="ptbl">
-          <div class="ptr hd r-sub"><span>Nombre</span><span>Tipo de trabajo</span><span>Costo acordado</span><span>Pagado</span><span>Fecha pago</span><span>Falta pagar</span><span></span></div>
-          ${subs.map((r,i)=>`<div class="ptr r-sub">${li('subs',i,'name',r.name,'text','Nombre')}${li('subs',i,'work',r.work,'text','Trabajo')}${li('subs',i,'cost',r.cost,'money','0')}${li('subs',i,'paid',r.paid,'money','0')}${li('subs',i,'date',r.date,'date')}<span class="calc" data-calc="subfalta-${i}">${fmt(N(r.cost)-N(r.paid),1)}</span>${del('subs',i)}</div>`).join('')}
-          <div class="ptr tot r-sub"><span>Total</span><span></span><b data-calc="subCost">${c.subCostTxt}</b><b data-calc="subPaid">${c.subPaidTxt}</b><span></span><b data-calc="subFalta">${c.subFaltaTxt}</b><span></span></div>
-        </div>` : `<div class="lempty">Todavía no hay subcontratistas en este proyecto.</div>`}
-      </section>`,
-    compras: () => `
-      <section class="card pj-card"><div class="pj-card-h"><h3>Compras y materiales</h3><div class="tools"><button class="btn sm" data-act="new-expense" data-project="${p.id}">${I.camera} Gasto con recibo</button><button class="btn sm" data-act="row-add" data-list="purchases">${I.plus} Agregar compra</button></div></div>
-        ${buys.length ? `<div class="ptbl">
-          <div class="ptr hd r-buy"><span>Fecha</span><span>Qué se compró</span><span>Tienda</span><span>Monto</span><span>Nota</span><span></span></div>
-          ${buys.map((r,i)=>`<div class="ptr r-buy">${li('purchases',i,'date',r.date,'date')}${li('purchases',i,'item',r.item,'text','Material')}${li('purchases',i,'store',r.store,'text','Tienda')}${li('purchases',i,'amount',r.amount,'money','0')}${li('purchases',i,'note',r.note,'text','Nota')}${del('purchases',i)}</div>`).join('')}
-          <div class="ptr tot r-buy"><span>Total</span><span></span><span></span><b data-calc="compras">${c.comprasTxt}</b><span></span><span></span></div>
-        </div>` : `<div class="lempty">Todavía no hay compras anotadas.</div>`}
-        ${linkedExp(p)}
-      </section>`,
+        <div class="lg-col">
+          <section class="card pj-card"><div class="pj-card-h"><h3>Pagos recibidos del cliente (después del down)</h3><button class="btn sm" data-act="row-add" data-list="payments">${I.plus} Agregar pago</button></div>
+            ${pays.length ? `<div class="ptbl">
+              <div class="ptr hd r-pay"><span>Fecha</span><span>Monto</span><span>Nota</span><span></span></div>
+              ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Nota')}${del('payments',i)}</div>`).join('')}
+              <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
+            </div>` : `<div class="lempty">Sin pagos después del down. Los pagos de las facturas de este proyecto aparecen aquí solos.</div>`}
+          </section>
+          <section class="card pj-card"><div class="pj-card-h"><h3>Subcontratistas</h3><button class="btn sm" data-act="row-add" data-list="subs">${I.plus} Agregar subcontratista</button></div>
+            ${subs.length ? `<div class="ptbl">
+              <div class="ptr hd r-sub"><span>Nombre</span><span>Tipo de trabajo</span><span>Costo acordado</span><span>Pagado</span><span>Fecha pago</span><span>Falta pagar</span><span></span></div>
+              ${subs.map((r,i)=>`<div class="ptr r-sub">${li('subs',i,'name',r.name,'text','Nombre')}${li('subs',i,'work',r.work,'text','Trabajo')}${li('subs',i,'cost',r.cost,'money','0')}${li('subs',i,'paid',r.paid,'money','0')}${li('subs',i,'date',r.date,'date')}<span class="calc" data-calc="subfalta-${i}">${fmt(N(r.cost)-N(r.paid),1)}</span>${del('subs',i)}</div>`).join('')}
+              <div class="ptr tot r-sub"><span>Total</span><span></span><b data-calc="subCost">${c.subCostTxt}</b><b data-calc="subPaid">${c.subPaidTxt}</b><span></span><b data-calc="subFalta">${c.subFaltaTxt}</b><span></span></div>
+            </div>` : `<div class="lempty">Todavía no hay subcontratistas en este proyecto.</div>`}
+          </section>
+          <section class="card pj-card"><div class="pj-card-h"><h3>Compras y materiales</h3><div class="tools"><button class="btn sm" data-act="new-expense" data-project="${p.id}">${I.camera} Gasto con recibo</button><button class="btn sm" data-act="row-add" data-list="purchases">${I.plus} Agregar compra</button></div></div>
+            ${buys.length ? `<div class="ptbl">
+              <div class="ptr hd r-buy"><span>Fecha</span><span>Qué se compró</span><span>Tienda</span><span>Monto</span><span>Nota</span><span></span></div>
+              ${buys.map((r,i)=>`<div class="ptr r-buy">${li('purchases',i,'date',r.date,'date')}${li('purchases',i,'item',r.item,'text','Material')}${li('purchases',i,'store',r.store,'text','Tienda')}${li('purchases',i,'amount',r.amount,'money','0')}${li('purchases',i,'note',r.note,'text','Nota')}${del('purchases',i)}</div>`).join('')}
+              <div class="ptr tot r-buy"><span>Total</span><span></span><span></span><b data-calc="compras">${c.comprasTxt}</b><span></span><span></span></div>
+            </div>` : `<div class="lempty">Todavía no hay compras anotadas.</div>`}
+            ${linkedExp(p)}
+          </section>
+        </div>
+      </div>
+      <div class="dr-actions">${delBlock()}</div>`,
     tareas: () => `
       <section class="card pj-card"><div class="pj-card-h"><h3>Tareas · ${tasks.length-pend.length} de ${tasks.length} completadas</h3><button class="btn sm" data-act="row-add" data-list="tasks">${I.plus} Agregar tarea</button></div>
         ${tasks.length ? `<div class="ptbl">
@@ -1584,13 +1607,6 @@ function drProject(p){
         <span class="pj-who">${esc([clientName(p.clientId)||p.owner, p.location].filter(Boolean).join(' · '))}</span>
       </div>
       <div class="tools"><button class="btn sm" data-act="est-from-project">${I.est} Estimado</button><button class="btn sm primary" data-act="inv-from-project">${I.inv} Factura</button></div>
-    </div>
-    <div class="pj-kpis">
-      <div class="kpi"><span>Precio</span><b class="num">${c.price?fmt(c.price,1):'—'}</b></div>
-      <div class="kpi"><span>Cobrado</span><b class="num" data-calc="cobrado">${c.cobradoTxt}</b><div class="prog"><i style="width:${Math.min(100,c.pctCobrado*100)}%"></i></div></div>
-      <div class="kpi"><span>Falta cobrar</span><b class="num" data-calc="falta">${c.faltaTxt}</b></div>
-      <div class="kpi"><span>Gastos</span><b class="num" data-calc="gastos">${c.gastosTxt}</b></div>
-      <div class="kpi hl"><span>Ganancia neta</span><b class="num ${c.ganancia<0?'neg':''}" data-calc="ganancia">${c.gananciaTxt}</b><small><span data-calc="margen">${c.margenTxt}</span> de margen</small></div>
     </div>
     <div class="tabs pj-tabs" role="tablist">${TABS.map(([k,l,n])=>`<button role="tab" aria-selected="${tab===k}" data-act="pj-tab" data-v="${k}">${l}${n?`<span class="cnt">${n}</span>`:''}</button>`).join('')}</div>
     <div class="pj-body">${(body[tab]||body.resumen)()}</div>
