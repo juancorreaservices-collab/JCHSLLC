@@ -20,9 +20,9 @@ async function notifyOwner(sb, share, name, site) {
     const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#0B1B33;max-width:560px">
       <p style="font-size:16px;margin:0 0 12px"><b>${h(name)}</b> signed estimate <b>${h(share.number)}</b>${share.property ? ' for ' + h(share.property) : ''}.</p>
       <p style="font-size:26px;font-weight:bold;margin:0 0 14px">${h(share.total)}</p>
-      <p style="font-size:14px;color:#44536B;margin:0 0 18px">Kuadra ya creó el proyecto. Falta tu aprobación para enviarle la factura al cliente con el link de pago.</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#0B1B33" style="background-color:#0B1B33;border-radius:8px"><a href="${h(link)}" style="display:block;padding:14px 22px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px">Revisar y aprobar la factura</a></td></tr></table>
-      <p style="font-size:12px;color:#8492A8;margin:16px 0 0">Si el botón no abre, copia este link: ${h(link)}</p></div>`;
+      <p style="font-size:14px;color:#44536B;margin:0 0 18px">Kuadra already created the project. Your approval is needed to send the invoice to the client with the payment link.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#0B1B33" style="background-color:#0B1B33;border-radius:8px"><a href="${h(link)}" style="display:block;padding:14px 22px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px">Review and approve the invoice</a></td></tr></table>
+      <p style="font-size:12px;color:#8492A8;margin:16px 0 0">If the button does not open, copy this link:${h(link)}</p></div>`;
     const b = 'kuadra_' + Math.random().toString(36).slice(2);
     const b64 = x => Buffer.from(x, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
     const mime = `To: ${email}\r\nSubject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary="${b}"\r\n\r\n--${b}\r\nContent-Type: text/plain; charset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64(text)}\r\n--${b}\r\nContent-Type: text/html; charset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64(html)}\r\n--${b}--`;
