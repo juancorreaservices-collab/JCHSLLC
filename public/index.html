@@ -323,10 +323,10 @@ a.fchip{padding-right:10px}
 .hidnote svg{width:16px;height:16px;flex:none}
 
 /* Type-ahead for products */
-.ac{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.18);overflow-y:auto;padding:4px}
+.ac{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(11,27,51,.14),0 2px 6px rgba(11,27,51,.06);overflow-y:auto;padding:6px}
 .ac[hidden]{display:none!important}
 .ac-i{display:flex;justify-content:space-between;gap:12px;width:100%;border:0;background:none;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--ink);align-items:flex-start}
-.ac-i.on,.ac-i:hover{background:var(--accent-soft)}
+.ac-i.on,.ac-i:hover{background:var(--surface-2)}
 .ac-n{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ac-n small{color:var(--ink-3);font-size:12px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ac-n .ac-u{color:var(--ok)}
@@ -417,6 +417,16 @@ details.menu > summary::-webkit-details-marker{display:none}
 .pc-item.pc-sub{margin-left:46px;padding:6px 10px;font-size:13px;color:var(--ink-2);border-left:2px solid var(--line);border-radius:0 8px 8px 0;text-align:left}
 .pc-count{margin-left:56px;font-size:12px;color:var(--ink-3);display:block;margin-top:-4px;margin-bottom:4px}
 .pp-pin svg{width:16px;height:16px;color:var(--ink-3)}
+select.in,select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238492A8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;background-repeat:no-repeat !important;background-position:right 10px center !important;background-size:16px !important;padding-right:34px !important;cursor:pointer;text-overflow:ellipsis}
+.combo-pop.dd{position:fixed;right:auto;z-index:3000}
+.dd .combo-it{justify-content:space-between}
+.dd .dd-l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dd .dd-hint{color:var(--ink-3);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dd .dd-ck{display:grid;place-items:center;color:var(--accent)}
+.dd .dd-ck svg{width:16px;height:16px}
+.dd-q{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--ink-3)}
+.dd-q svg{width:16px;height:16px;flex-shrink:0}
+.dd-q input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;color:var(--ink)}
 .combo{position:relative;display:block}
 .combo > input{width:100%}
 .combo.has > input,.combo:has(.combo-tg) > input{padding-right:36px}
@@ -2689,7 +2699,7 @@ function comboPick(cb, v){ const inp = cb.querySelector('input'); inp.value = v;
 document.addEventListener('focusin', e => { const cb = e.target.closest?.('.combo'); if (cb && e.target.matches('input')) comboOpen(cb, true); });
 document.addEventListener('input', e => { const cb = e.target.closest?.('.combo'); if (cb && e.isTrusted) comboOpen(cb); });
 document.addEventListener('mousedown', e => {
-  const it = e.target.closest?.('.combo-it'); if (it){ e.preventDefault(); return comboPick(it.closest('.combo'), it.dataset.v); }
+  const it = e.target.closest?.('.combo .combo-it'); if (it){ e.preventDefault(); return comboPick(it.closest('.combo'), it.dataset.v); }
   const tg = e.target.closest?.('.combo-tg'); if (tg){ e.preventDefault(); const cb = tg.closest('.combo'); const pop = cb.querySelector('.combo-pop'); if (pop.hidden){ cb.querySelector('input').focus(); comboOpen(cb, true); } else comboClose(cb); return; }
   document.querySelectorAll('.combo').forEach(cb => { if (!cb.contains(e.target)) comboClose(cb); });
 });
@@ -2700,6 +2710,69 @@ document.addEventListener('keydown', e => {
   if (e.key==='ArrowDown' || e.key==='ArrowUp'){ if (pop.hidden) comboOpen(cb, true); else { cb._i = Math.max(0, Math.min(its.length-1, (cb._i??-1) + (e.key==='ArrowDown'?1:-1))); its.forEach((x,i)=>x.classList.toggle('kb', i===cb._i)); its[cb._i]?.scrollIntoView({block:'nearest'}); } e.preventDefault(); }
   if (e.key==='Enter' && !pop.hidden && its[cb._i]){ e.preventDefault(); comboPick(cb, its[cb._i].dataset.v); }
 }, true);
+/* One look for every dropdown: selects and suggestion lists open the same white panel as the property picker */
+const DD = {el:null, anchor:null, items:[], i:-1, kind:''};
+function ddEl(){ if (!DD.el){ DD.el = document.createElement('div'); DD.el.id = 'dd'; DD.el.className = 'combo-pop dd'; DD.el.hidden = true; document.body.appendChild(DD.el); } return DD.el; }
+function ddClose(){ if (DD.el) DD.el.hidden = true; DD.anchor = null; }
+function ddPlace(){
+  const a = DD.anchor, el = DD.el; if (!a || !el) return; const r = a.getBoundingClientRect();
+  if (r.width===0 && r.height===0) return ddClose();
+  const w = Math.min(window.innerWidth-16, Math.max(r.width, 220)); el.style.width = w+'px';
+  el.style.left = Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+  const below = window.innerHeight - r.bottom - 12, above = r.top - 12; const up = below < 180 && above > below;
+  const list = el.querySelector('.combo-list'); if (list) list.style.maxHeight = Math.max(120, Math.min(300, (up?above:below) - (el.querySelector('.dd-q')?54:0) - 16))+'px';
+  if (up){ el.style.top = ''; el.style.bottom = (window.innerHeight - r.top + 6)+'px'; } else { el.style.bottom = ''; el.style.top = (r.bottom + 6)+'px'; }
+}
+function ddRender(q){
+  const el = ddEl(); q = (q||'').toLowerCase().trim();
+  let hits = q ? DD.items.filter(x=>(x.label+' '+(x.hint||'')).toLowerCase().includes(q)) : DD.items; const more = hits.length - 60; hits = hits.slice(0,60);
+  DD.hits = hits; DD.i = -1;
+  const list = el.querySelector('.combo-list');
+  list.innerHTML = hits.map((x,i)=>`<button type="button" class="combo-it ${x.on?'on':''}" data-i="${i}"><span class="dd-l">${esc(x.label)}</span>${x.hint?`<span class="dd-hint">${esc(x.hint)}</span>`:''}${x.on?`<span class="dd-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>`:''}</button>`).join('') + (more>0?`<div class="combo-none">y ${more} más. Escribe para buscar.</div>`:'') || '<div class="combo-none">Sin coincidencias.</div>';
+  if (!hits.length && DD.kind==='list') return ddClose();
+  ddPlace(); list.querySelector('.combo-it.on')?.scrollIntoView({block:'nearest'});
+}
+function ddOpen(anchor, items, kind){
+  const el = ddEl(); DD.anchor = anchor; DD.items = items; DD.kind = kind;
+  el.innerHTML = `${kind==='select' && items.length>8 ? `<div class="dd-q">${I.search}<input type="text" placeholder="Buscar" autocomplete="off"></div>`:''}<div class="combo-list"></div>`;
+  el.hidden = false; ddRender(kind==='list' ? anchor.value : '');
+  const qi = el.querySelector('.dd-q input'); if (qi){ qi.oninput = () => ddRender(qi.value); if (!matchMedia('(pointer:coarse)').matches) qi.focus(); }
+}
+function ddPick(x){
+  const a = DD.anchor; if (!a || !x) return; ddClose();
+  a.value = x.v; a.dispatchEvent(new Event('input', {bubbles:true})); a.dispatchEvent(new Event('change', {bubbles:true})); if (a.tagName==='SELECT') a.focus();
+}
+function ddSelect(sel){ if (sel.disabled || sel.multiple) return; if (DD.anchor===sel) return ddClose(); ddOpen(sel, [...sel.options].filter(o=>!o.disabled||o.selected).map(o=>({v:o.value, label:o.textContent.trim(), on:o.selected})), 'select'); }
+function ddList(inp){
+  let id = inp.getAttribute('list'); if (id){ inp.dataset.dd = id; inp.removeAttribute('list'); inp.setAttribute('autocomplete','off'); } else id = inp.dataset.dd;
+  const dl = id && document.getElementById(id); if (!dl) return;
+  const items = [...dl.options].map(o=>({v:o.value, label:o.value, hint:o.textContent.trim()!==o.value?o.textContent.trim():''})).filter(x=>x.v);
+  if (!items.length) return; ddOpen(inp, items, 'list');
+}
+const ddIsList = t => t?.matches?.('input') && (t.getAttribute('list') || t.dataset.dd) && !t.closest('.combo');
+document.addEventListener('mousedown', e => {
+  if (e.target.closest?.('#dd')){ const it = e.target.closest('.combo-it'); if (it){ e.preventDefault(); ddPick(DD.hits[+it.dataset.i]); } else if (!e.target.closest('.dd-q')) e.preventDefault(); return; }
+  const sel = e.target.closest?.('select'); if (sel && !sel.multiple){ e.preventDefault(); sel.focus(); return ddSelect(sel); }
+  if (DD.anchor && e.target!==DD.anchor) ddClose();
+}, true);
+document.addEventListener('touchend', e => { const sel = e.target.closest?.('select'); if (sel && !sel.multiple && !sel.disabled){ e.preventDefault(); sel.focus(); ddSelect(sel); } }, {capture:true, passive:false});
+document.addEventListener('focusin', e => { if (ddIsList(e.target)) ddList(e.target); });
+document.addEventListener('input', e => { if (e.isTrusted && ddIsList(e.target)) ddList(e.target); });
+document.addEventListener('focusout', e => { if (DD.anchor===e.target) setTimeout(()=>{ if (DD.anchor===e.target && !DD.el.contains(document.activeElement)) ddClose(); }, 150); });
+document.addEventListener('keydown', e => {
+  const t = e.target; const inDD = t.closest?.('#dd'); const isSel = t.tagName==='SELECT' && !t.multiple;
+  if (!inDD && !isSel && !(DD.anchor===t)) return;
+  const open = DD.el && !DD.el.hidden;
+  if (isSel && !open){ if ([' ','Enter','ArrowDown','ArrowUp'].includes(e.key)){ e.preventDefault(); ddSelect(t); } return; }
+  if (!open) return;
+  const its = [...DD.el.querySelectorAll('.combo-it')];
+  if (e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); const a = DD.anchor; ddClose(); a?.focus?.(); return; }
+  if (e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); if (DD.i<0) DD.i = its.findIndex(x=>x.classList.contains('on')); DD.i = Math.max(0, Math.min(its.length-1, DD.i + (e.key==='ArrowDown'?1:-1))); its.forEach((x,i)=>x.classList.toggle('kb', i===DD.i)); its[DD.i]?.scrollIntoView({block:'nearest'}); return; }
+  if (e.key==='Enter' && DD.i>=0){ e.preventDefault(); e.stopPropagation(); return ddPick(DD.hits[DD.i]); }
+  if (e.key==='Tab') ddClose();
+}, true);
+window.addEventListener('resize', ddClose);
+document.addEventListener('scroll', e => { if (DD.anchor && !(e.target.closest?.('#dd'))) ddPlace(); }, true);
 /* A client can own many properties: list them, search them, pick one */
 function clientProps(c){ if (!c) return []; const seen = new Set(), out = []; [jobAddr(c), ...(c.properties||[])].forEach(x=>{ const v=String(x||'').trim(); const k=v.toLowerCase(); if (v && !seen.has(k)){ seen.add(k); out.push(v); } }); return out; }
 function rememberProp(clientId, prop){ const c = S.clients[clientId]; prop = String(prop||'').trim(); if (!c || !prop) return; if (clientProps(c).some(x=>x.toLowerCase()===prop.toLowerCase())) return; (c.properties ||= []).push(prop); persist('clients', c, true); }
