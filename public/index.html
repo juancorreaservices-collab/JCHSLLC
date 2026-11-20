@@ -624,7 +624,15 @@ button.lrow:hover{background:var(--surface-2)}
 .pj-body{display:flex;flex-direction:column;gap:16px}
 .lg-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
 .lg-two .ptbl{overflow-x:auto}
-.lg-two .ptr.r-sub{grid-template-columns:minmax(84px,1fr) minmax(84px,1fr) 82px 82px 122px 78px 24px}
+.lg-two .ptr.r-sub{grid-template-columns:minmax(70px,1fr) minmax(70px,1fr) 84px 86px 112px 108px 22px}
+.ptr.r-sub .btn.sm{padding-left:8px;padding-right:8px;font-size:12px}
+.ptr.r-sub .calc,.ptr.r-sub .r,.ptr.r-sub b.calc{text-align:right;font-variant-numeric:tabular-nums}
+.ptr.r-sub .calc.neg{color:var(--bad)}
+.ptr.r-sub .btn.sm{white-space:nowrap;justify-self:end}
+.sub-pays{padding:2px 12px 8px 26px;border-bottom:1px solid var(--line);display:flex;flex-direction:column}
+.sub-pay{display:grid;grid-template-columns:110px 100px minmax(0,1fr) 24px;gap:8px;align-items:center;font-size:13px;color:var(--ink-2);padding:2px 0}
+.sub-pay b{text-align:right;color:var(--ink)}
+.sub-pay .icon-btn{width:24px;height:24px}
 .lg-two .ptr.r-buy{grid-template-columns:122px minmax(90px,1.2fr) minmax(80px,1fr) 84px minmax(60px,.7fr) 24px}
 .lg-two .ptr.r-pay{grid-template-columns:122px 100px minmax(100px,1fr) 24px}
 .lg-two .ptr{padding-left:12px;padding-right:10px}
@@ -1529,6 +1537,21 @@ function delBlock(){
 
 /* Project drawer — same layout as each project tab of the "Proyectos" Google Sheet */
 const pnum = p => p.num ? String(p.num).padStart(2,'0') : '';
+// every payment made to a subcontractor; older rows only had one "paid" amount and one date
+const subPays = r => Array.isArray(r.pays) ? r.pays : (N(r.paid) ? [{date:r.date||'', amount:N(r.paid), note:''}] : []);
+function subSync(r){ r.paid = r.pays.reduce((a,x)=>a+N(x.amount),0) || ''; r.date = r.pays.map(x=>x.date).filter(Boolean).sort().pop() || ''; }
+function subPayModal(p, i){
+  const r = p.subs[i]; const left = Math.max(0, N(r.cost)-N(r.paid));
+  openModal(`Registrar pago · ${esc(r.name||'subcontratista')}`, `
+    <p class="muted" style="margin:0 0 12px">Costo acordado ${fmt(N(r.cost),1)} · ya pagado ${fmt(N(r.paid),1)} · falta ${fmt(left,1)}</p>
+    <div class="fgrid">
+      <label class="f"><span>Fecha del pago</span><input class="in plain" type="date" id="sp-date" value="${todayISO()}"></label>
+      <label class="f"><span>Monto</span><input class="in plain n" id="sp-amt" inputmode="decimal" value="${left?left.toFixed(2):''}"></label>
+      <label class="f full"><span>Nota (opcional)</span><input class="in plain" id="sp-note" placeholder="Ej. Zelle, cheque #, efectivo"></label>
+    </div><div id="sp-msg"></div>`,
+    `<button class="btn" data-act="modal-close">Cancelar</button><button class="btn primary" data-act="sub-pay-save" data-i="${i}">Guardar pago</button>`);
+  setTimeout(()=>$('#sp-amt')?.select(), 50);
+}
 function projCalcs(p){
   const c = pc(p);
   return { ...c,
@@ -1540,7 +1563,7 @@ function refreshProjCalcs(p){
   const c = projCalcs(p);
   document.querySelectorAll('#drawer [data-calc]').forEach(el => {
     const k = el.dataset.calc;
-    if (k.startsWith('subfalta-')){ const r = (p.subs||[])[+k.slice(9)]; if (r) el.textContent = fmt(N(r.cost)-N(r.paid),1); return; }
+    if (k.startsWith('subfalta-')){ const r = (p.subs||[])[+k.slice(9)]; if (r){ const left = N(r.cost)-N(r.paid); const done = N(r.cost)>0 && left<=0.004; el.innerHTML = done ? '<span class="pill ok">Pagado completo</span>' : fmt(left,1); el.classList.toggle('neg', !done && left>0.004); } return; }
     if (c[k+'Txt'] != null) el.textContent = c[k+'Txt'];
     if (k==='ganancia') el.classList.toggle('neg', c.ganancia<0);
     if (k==='falta') el.classList.toggle('neg', c.price>0 && c.falta>0.004);
@@ -1604,9 +1627,9 @@ function drProject(p){
           </section>
           <section class="card pj-card"><div class="pj-card-h"><h3>Subcontratistas</h3><button class="btn sm" data-act="row-add" data-list="subs">${I.plus} Agregar subcontratista</button></div>
             ${subs.length ? `<div class="ptbl">
-              <div class="ptr hd r-sub"><span>Nombre</span><span>Tipo de trabajo</span><span>Costo acordado</span><span>Pagado</span><span>Fecha pago</span><span>Falta pagar</span><span></span></div>
-              ${subs.map((r,i)=>`<div class="ptr r-sub">${li('subs',i,'name',r.name,'text','Nombre')}${li('subs',i,'work',r.work,'text','Trabajo')}${li('subs',i,'cost',r.cost,'money','0')}${li('subs',i,'paid',r.paid,'money','0')}${li('subs',i,'date',r.date,'date')}<span class="calc" data-calc="subfalta-${i}">${fmt(N(r.cost)-N(r.paid),1)}</span>${del('subs',i)}</div>`).join('')}
-              <div class="ptr tot r-sub"><span>Total</span><span></span><b data-calc="subCost">${c.subCostTxt}</b><b data-calc="subPaid">${c.subPaidTxt}</b><span></span><b data-calc="subFalta">${c.subFaltaTxt}</b><span></span></div>
+              <div class="ptr hd r-sub"><span>Nombre</span><span>Tipo de trabajo</span><span>Costo acordado</span><span class="r">Pagado</span><span class="r">Falta pagar</span><span></span><span></span></div>
+              ${subs.map((r,i)=>{ const left = N(r.cost)-N(r.paid), done = N(r.cost)>0 && left<=0.004, ps = subPays(r); return `<div class="ptr r-sub">${li('subs',i,'name',r.name,'text','Nombre')}${li('subs',i,'work',r.work,'text','Trabajo')}${li('subs',i,'cost',r.cost,'money','0')}<b class="calc">${fmt(N(r.paid),1)}</b><span class="calc ${!done&&left>0.004?'neg':''}" data-calc="subfalta-${i}">${done?'<span class="pill ok">Pagado completo</span>':fmt(left,1)}</span>${done?'<span></span>':`<button class="btn sm" data-act="sub-pay" data-i="${i}">Registrar pago</button>`}${del('subs',i)}</div>${ps.length?`<div class="sub-pays">${ps.map((x,j)=>`<div class="sub-pay"><span>${x.date?fdate(x.date):'Sin fecha'}</span><b class="num">${fmt(N(x.amount),1)}</b><span class="muted">${esc(x.note||'')}</span><button class="icon-btn" data-act="sub-pay-del" data-i="${i}" data-j="${j}" aria-label="Quitar pago">${I.x}</button></div>`).join('')}</div>`:''}`; }).join('')}
+              <div class="ptr tot r-sub"><span>Total</span><span></span><b data-calc="subCost">${c.subCostTxt}</b><b data-calc="subPaid">${c.subPaidTxt}</b><b data-calc="subFalta">${c.subFaltaTxt}</b><span></span><span></span></div>
             </div>` : `<div class="lempty">Todavía no hay subcontratistas en este proyecto.</div>`}
           </section>
           <section class="card pj-card"><div class="pj-card-h"><h3>Compras y materiales</h3><div class="tools"><button class="btn sm" data-act="new-expense" data-project="${p.id}">${I.camera} Gasto con recibo</button><button class="btn sm" data-act="row-add" data-list="purchases">${I.plus} Agregar compra</button></div></div>
@@ -2084,6 +2107,11 @@ async function act(name, el){
     case 'board-today': S.boardStart = shiftMonth(curMonth(),-1); return renderView();
     case 'board-filter': S.boardFilter = el.dataset.v; return renderView();
     case 'doc-filter': S.docFilter = el.dataset.v; return renderView();
+    case 'sub-pay': return subPayModal(o, +el.dataset.i);
+    case 'sub-pay-save': { const r = o.subs[+el.dataset.i]; const amt = Math.round(N($('#sp-amt').value)*100)/100; if (amt<=0){ $('#sp-msg').innerHTML='<div class="note bad">Escribe un monto mayor que cero.</div>'; return; }
+      r.pays = subPays(r).slice(); r.pays.push({date:$('#sp-date').value||todayISO(), amount:amt, note:$('#sp-note').value.trim()}); subSync(r); persist(coll,o,true); closeModal(); renderDrawer();
+      const left = N(r.cost)-N(r.paid); toast(N(r.cost)>0 && left<=0.004 ? `${r.name||'Subcontratista'} quedó pagado completo` : `Pago guardado · falta ${fmt(left,1)}`); return; }
+    case 'sub-pay-del': { const r = o.subs[+el.dataset.i]; r.pays = subPays(r).slice(); r.pays.splice(+el.dataset.j,1); subSync(r); persist(coll,o,true); return renderDrawer(); }
     case 'row-add': {
       const key = el.dataset.list; const arr = o[key] ||= [];
       const blank = {payments: coll==='invoices'?{date:todayISO(),amount:'',method:''}:{date:todayISO(),amount:'',note:''}, purchases:{date:todayISO(),item:'',store:'',amount:'',note:''}, subs:{name:'',work:'',cost:'',paid:''}, tasks:{text:'',status:'Pendiente',notes:''}, items:{area:(o.items||[]).slice(-1)[0]?.area||'',desc:'',qty:1,rate:''}}[key];
@@ -3248,7 +3276,7 @@ function calEvents(){
     if (okDate(p.start) && okDate(p.end) && p.end >= p.start) ev.push({from:p.start, to:p.end, kind:'proj', title:p.name, sub:'Proyecto', open, color});
     else { if (okDate(p.start)) ev.push({from:p.start, to:p.start, kind:'proj', title:'Inicio · '+p.name, sub:'Proyecto', open, color}); if (okDate(p.end)) ev.push({from:p.end, to:p.end, kind:'proj', title:'Fin · '+p.name, sub:'Proyecto', open, color}); }
   });
-  list('projects').forEach(p => (p.subs||[]).forEach(r => { const left = N(r.cost)-N(r.paid); if (okDate(r.date) && left > 0.004) ev.push({from:r.date, to:r.date, kind:'pay', title:`Pagar ${fmt(left,1)} · ${r.name||r.work||'subcontratista'}`, sub:'Subcontratista · '+p.name, open:'projects:'+p.id}); }));
+  list('projects').forEach(p => (p.subs||[]).forEach(r => { const left = N(r.cost)-N(r.paid); if (!Array.isArray(r.pays) && okDate(r.date) && left > 0.004) ev.push({from:r.date, to:r.date, kind:'pay', title:`Pagar ${fmt(left,1)} · ${r.name||r.work||'subcontratista'}`, sub:'Subcontratista · '+p.name, open:'projects:'+p.id}); }));
   list('invoices').forEach(i => {
     const st = invStatus(i)[0]; if (st==='Pagada' || st==='Borrador') return;
     const who = clientName(i.clientId) || i.number; const open = 'invoices:'+i.id;
@@ -3790,7 +3818,7 @@ function ledger(){
     if (N(p.down)) tx.push({date: fallbackDate(p.downDate||p.start, p.month), kind:'in', cat:'Proyectos', amount:N(p.down), who:p.name, note:'Down payment'});
     (p.payments||[]).forEach(x => { if (N(x.amount)) tx.push({date: fallbackDate(x.date, p.month), kind:'in', cat:'Proyectos', amount:N(x.amount), who:p.name, note:x.note||'Pago'}); });
     (p.purchases||[]).forEach(x => { if (N(x.amount)) tx.push({date: fallbackDate(x.date, p.month), kind:'out', cat:'Materiales', amount:N(x.amount), who:x.store||'', note:`${x.item||'Compra'} · ${p.name}`}); });
-    (p.subs||[]).forEach(x => { if (N(x.paid)) tx.push({date: fallbackDate(x.date, p.month), kind:'out', cat:'Subcontratistas', amount:N(x.paid), who:x.name||'Sin nombre', note:`${x.work||''} · ${p.name}`}); });
+    (p.subs||[]).forEach(x => subPays(x).forEach(y => { if (N(y.amount)) tx.push({date: fallbackDate(y.date, p.month), kind:'out', cat:'Subcontratistas', amount:N(y.amount), who:x.name||'Sin nombre', note:`${x.work||''} · ${p.name}`}); }));
   });
   list('invoices').forEach(inv => { if (validProj(inv.projectId)) return; (inv.payments||[]).forEach(x => { if (N(x.amount)) tx.push({date:x.date||inv.date, kind:'in', cat:'Facturas', amount:N(x.amount), who:clientName(inv.clientId), note:inv.number}); }); });
   quickInvs().forEach(i => { if (N(i.cost) && docTotals(i).paid>0.004) tx.push({date:i.date, kind:'out', cat:'Materiales', amount:N(i.cost), who:clientName(i.clientId), note:`Costo · ${i.summary||i.number}`}); });
