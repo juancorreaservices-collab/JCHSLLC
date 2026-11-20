@@ -1669,7 +1669,7 @@ function plainAddr(c){ if(!c) return ''; const l3=addrL3(c); return [c.address, 
 function estStatus(e){
   if (e.convertedTo && S.invoices[e.convertedTo]) return ['Convertido','ok'];
   if (e.status==='Aceptado') return ['Aceptado','ok'];
-  if (e.status==='Rechazado') return ['Rechazado','bad'];
+  if (e.status==='Rechazado') return ['No aceptado','bad'];
   if (e.validUntil && e.validUntil < todayISO()) return ['Vencido','bad'];
   if (e.status==='Enviado' || e.sentAt) return ['Enviado','info'];
   return ['Borrador',''];
@@ -2028,6 +2028,9 @@ async function act(name, el){
     case 'toggle-prices': o.showPrices = o.showPrices ? '' : '1'; persist(coll,o); renderDrawer(); return;
     case 'toggle-col': { const c = docCols(o, coll); const k = {qty:'hideQty',price:'hidePrice',amount:'hideAmount'}[el.dataset.col]; o.hideQty = c.qty?'':'1'; o.hidePrice = c.price?'':'1'; o.hideAmount = c.amount?'':'1'; o[k] = c[el.dataset.col] ? '1' : ''; o.colsSet = '1'; persist(coll,o); renderDrawer(); return; }
     case 'est-mark': o.status = el.dataset.v; persist(coll,o,true); renderDrawer(); toast('Estimado marcado como '+el.dataset.v.toLowerCase()); return;
+    case 'est-decline-ask': return openModal('El cliente no aceptó', `<p>El estimado <b>${esc(o.number)}</b> se marca como <b>No aceptado</b> y pasa a la pestaña <b>Archivados</b>. No se borra: lo puedes reactivar cuando quieras.</p><label class="f"><span>Motivo (opcional, solo para ti)</span><input class="in plain" id="dc-why" placeholder="Ej. Muy caro, eligió a otro, lo dejó para después"></label>`, `<button class="btn" data-act="modal-close">Cancelar</button><button class="btn primary" data-act="est-decline">Marcar y archivar</button>`);
+    case 'est-decline': { o.status = 'Rechazado'; o.declinedAt = todayISO(); o.declineReason = ($('#dc-why')?.value||'').trim(); o.pendingApproval = ''; persist(coll,o,true); closeModal(); S.estTab = 'active'; go('estimados'); toast(`Estimado ${o.number} archivado como no aceptado`); return; }
+    case 'est-reopen': { o.status = o.sentAt ? 'Enviado' : 'Borrador'; o.declinedAt = ''; o.declineReason = ''; persist(coll,o,true); renderDrawer(); toast('Estimado reactivado'); return; }
     case 'doc-del-ask': return openModal(`Eliminar ${docLabel(coll)} ${esc(o.number)}`, `<p>Se va a borrar para siempre. ${coll==='invoices'&&(o.payments||[]).length?'Los pagos registrados también se quitan del proyecto.':''}</p>`, `<button class="btn" data-act="modal-close">Cancelar</button><button class="btn danger" data-act="doc-del-yes">Sí, eliminar</button>`);
     case 'doc-del-yes': { const dcoll = S.doc.coll, did = S.doc.id; const d0 = S[dcoll][did]; if (dcoll==='invoices' && d0?.projectId){ d0.payments=[]; syncInvoicePayments(d0); } Object.values(S.estimates).forEach(e=>{ if (e.convertedTo===did){ e.convertedTo=''; persist('estimates',e,true); } }); closeModal(); S.forceGo = true; go(dcoll==='invoices'?'facturas':'estimados'); await remove(dcoll, did); renderView(); toast('Eliminado'); return; }
     case 'close': return closeDrawer();
@@ -2646,6 +2649,7 @@ function docView(d, coll, isInv){
   const more = `<details class="menu"><summary class="btn">Más acciones ▾</summary><div class="menu-list right">
     <button data-act="email-doc">Enviar por email</button><button data-act="pdf">Exportar PDF</button><button data-act="duplicate">Duplicar</button>
     ${!d.sentAt?`<button data-act="mark-sent">Marcar como enviado</button>`:''}${!isInv && !d.projectId?`<button data-act="est-to-project">Crear proyecto</button>`:''}
+    ${!isInv && !conv ? (d.status==='Rechazado' ? `<button data-act="est-reopen">Reactivar estimado</button>` : `<button data-act="est-decline-ask">Cliente no aceptó (archivar)</button>`) : ''}
     <button class="danger" data-act="doc-del-ask">Eliminar</button></div></details>`;
   const sentLine = d.sentAt ? `${d.sentTo?'Enviado a '+esc(d.sentTo):'Marcado como enviado'} el ${fdate(d.sentAt)}` : 'Todavía no se ha enviado';
   const pays = d.payments||[];
@@ -2675,7 +2679,7 @@ function docView(d, coll, isInv){
           <div style="width:100%;display:flex;flex-direction:column;gap:8px">${field('Link de pago de Commas para esta factura','payLink',d.payLink,'url')}
           <div class="dr-actions">${S.commas && t.balance>0.5?`<button class="btn sm primary" data-act="commas-link">${I.link} ${d.payLink?'Crear link nuevo':'Crear link de pago'}</button>`:''}<a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">${I.link} Abrir Commas</a><button class="btn sm" data-act="copy-amt">Copiar monto: ${fmt(dueNow(d),1)}</button><button class="btn sm" data-act="copy-pay">Copiar link</button><button class="btn sm" data-act="copy-paymsg">Copiar mensaje para WhatsApp</button></div>
           ${payLinks(d).some(l=>l.url)?`<span class="note ok" style="font-size:12px">${I.link} El email y el PDF llevan el botón de pago.</span>`:`<span class="note warn" style="font-size:12px">Falta el link de pago: crea uno en Commas por ${fmt(dueNow(d),1)} y pégalo arriba antes de enviar.</span>`}</div></section>`
-      : `<section class="card step"><div class="step-i">3</div><div class="step-b"><h3>Respuesta del cliente</h3><p class="muted">${s[0]==='Convertido'?'Aceptado y convertido en factura':s[0]==='Aceptado'?(d.acceptedBy?`Aceptado por ${esc(d.acceptedBy)} por email el ${fdate(d.acceptedAt)}`:'Aceptado'):s[0]==='Rechazado'?'Rechazado':(d.sentAt?'Esperando respuesta. Si el cliente responde por email, aparece aquí solo.':'Esperando respuesta')}</p></div><div class="tools">${!conv?`<button class="btn sm" data-act="est-mark" data-v="Aceptado">Marcar aceptado</button><button class="btn sm ghost" data-act="est-mark" data-v="Rechazado">Marcar rechazado</button>`:''}</div></section>`}
+      : `<section class="card step"><div class="step-i">3</div><div class="step-b"><h3>Respuesta del cliente</h3><p class="muted">${s[0]==='Convertido'?'Aceptado y convertido en factura':s[0]==='Aceptado'?(d.acceptedBy?`Aceptado por ${esc(d.acceptedBy)} por email el ${fdate(d.acceptedAt)}`:'Aceptado'):s[0]==='No aceptado'?`No aceptado${d.declinedAt?' el '+fdate(d.declinedAt):''} · archivado${d.declineReason?' · '+esc(d.declineReason):''}`:(d.sentAt?'Esperando respuesta. Si el cliente responde por email, aparece aquí solo.':'Esperando respuesta')}</p></div><div class="tools">${conv?'': d.status==='Rechazado' ? `<button class="btn sm" data-act="est-reopen">Reactivar</button>` : `<button class="btn sm" data-act="est-mark" data-v="Aceptado">Marcar aceptado</button><button class="btn sm" data-act="est-decline-ask">No aceptó · archivar</button>`}</div></section>`}
     </div>
     <div class="paper">${paperHTML(d, coll)}</div>
     <div class="doc-danger"><button class="btn ghost danger" data-act="doc-del-ask">${I.trash} Eliminar ${docLabel(coll)}</button></div>
@@ -2829,7 +2833,7 @@ function vDocs(kind){
   const all = list(kind).sort((a,b)=>String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number)));
   const st = d => docStatus(d, kind)[0];
   const tabs = isInv ? [['unpaid','Sin pagar',d=>!['Borrador','Pagada'].includes(st(d))],['draft','Borradores',d=>st(d)==='Borrador'],['all','Todas',()=>true]]
-                     : [['active','Activos',d=>!['Convertido','Vencido','Rechazado'].includes(st(d))],['draft','Borradores',d=>st(d)==='Borrador'],['all','Todos',()=>true]];
+                     : [['active','Activos',d=>!['Convertido','Vencido','No aceptado'].includes(st(d))],['draft','Borradores',d=>st(d)==='Borrador'],['archived','Archivados',d=>['Vencido','No aceptado'].includes(st(d))],['all','Todos',()=>true]];
   const key = isInv ? 'invTab' : 'estTab';
   if (!tabs.some(t=>t[0]===S[key])) S[key] = tabs[0][0];
   const q = (S.docQ||'').toLowerCase();
@@ -2857,7 +2861,7 @@ function vDocs(kind){
   const action = d => {
     const s = st(d);
     if (isInv) return s==='Borrador' ? `<button class="btn sm" data-act="row-send" data-id="${d.id}">Enviar</button>` : s!=='Pagada' ? `<button class="btn sm" data-act="row-pay" data-id="${d.id}">Registrar pago</button>` : `<span class="muted" style="font-size:12px">Pagada</span>`;
-    return s==='Convertido' ? `<button class="btn sm ghost" data-open="invoices:${d.convertedTo}">Ver factura</button>` : s==='Borrador' ? `<button class="btn sm" data-act="row-send" data-id="${d.id}">Enviar</button>` : `<button class="btn sm" data-act="row-convert" data-id="${d.id}">Convertir a factura</button>`;
+    return s==='Convertido' ? `<button class="btn sm ghost" data-open="invoices:${d.convertedTo}">Ver factura</button>` : s==='Borrador' ? `<button class="btn sm" data-act="row-send" data-id="${d.id}">Enviar</button>` : s==='No aceptado' ? `<span class="muted" style="font-size:12px">Archivado</span>` : `<button class="btn sm" data-act="row-convert" data-id="${d.id}">Convertir a factura</button>`;
   };
   return `
   <div class="head"><div><h1>${isInv?'Facturas':'Estimados'}</h1><p>${isInv?'Crea, envía y cobra tus facturas.':'Cotiza trabajos y conviértelos en factura con un clic.'}</p></div>
@@ -3254,7 +3258,7 @@ function calEvents(){
   });
   list('estimates').forEach(e => {
     const st = estStatus(e)[0]; const open = 'estimates:'+e.id; const pr = e.projectId && S.projects[e.projectId];
-    if (st==='Rechazado' || st==='Vencido' || st==='Borrador') return;
+    if (st==='No aceptado' || st==='Vencido' || st==='Borrador') return;
     // once the job is a project with its own dates, the project is what shows
     if (!(pr && (pr.start || pr.end))){
       if (okDate(e.startDate) && okDate(e.completion) && e.completion >= e.startDate) ev.push({from:e.startDate, to:e.completion, kind:'est', title:docName(e,'estimates'), sub:'Estimado '+e.number+' · fechas estimadas', open});
