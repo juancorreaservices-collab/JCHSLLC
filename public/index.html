@@ -417,6 +417,22 @@ details.menu > summary::-webkit-details-marker{display:none}
 .pc-item.pc-sub{margin-left:46px;padding:6px 10px;font-size:13px;color:var(--ink-2);border-left:2px solid var(--line);border-radius:0 8px 8px 0;text-align:left}
 .pc-count{margin-left:56px;font-size:12px;color:var(--ink-3);display:block;margin-top:-4px;margin-bottom:4px}
 .pp-pin svg{width:16px;height:16px;color:var(--ink-3)}
+.combo{position:relative;display:block}
+.combo > input{width:100%}
+.combo.has > input,.combo:has(.combo-tg) > input{padding-right:36px}
+.combo-tg{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;background:none;border-radius:6px;display:grid;place-items:center;color:var(--ink-3);cursor:pointer}
+.combo-tg:hover{background:var(--surface-2);color:var(--ink)}
+.combo-tg svg{width:16px;height:16px}
+.combo-pop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(11,27,51,.14),0 2px 6px rgba(11,27,51,.06);overflow:hidden;text-align:left}
+.combo-h{padding:10px 14px 8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)}
+.combo-list{max-height:264px;overflow:auto;padding:6px}
+.combo-it{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:9px 10px;border-radius:8px;font-size:14px;color:var(--ink);cursor:pointer;text-align:left}
+.combo-it:hover,.combo-it.kb{background:var(--surface-2)}
+.combo-it.on{background:var(--accent-soft,#E8EEFF);color:var(--accent);font-weight:600}
+.combo-pin{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;flex-shrink:0;color:var(--ink-3)}
+.combo-it.on .combo-pin{background:#fff;color:var(--accent)}
+.combo-pin svg{width:15px;height:15px}
+.combo-none{padding:12px;font-size:13px;color:var(--ink-3)}
 .pp-new{display:flex;gap:8px;margin-top:10px}
 .pp-new .in{flex:1;min-width:0}
 .pp-link{align-self:flex-start;font-size:13px;margin-top:-4px}
@@ -596,7 +612,13 @@ button.lrow:hover{background:var(--surface-2)}
 .pj-tabs::-webkit-scrollbar{display:none}
 .pj-tabs button{white-space:nowrap}
 .pj-body{display:flex;flex-direction:column;gap:16px}
-.lg-two{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:16px;align-items:start}
+.lg-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.lg-two .ptbl{overflow-x:auto}
+.lg-two .ptr.r-sub{grid-template-columns:minmax(84px,1fr) minmax(84px,1fr) 82px 82px 122px 78px 24px}
+.lg-two .ptr.r-buy{grid-template-columns:122px minmax(90px,1.2fr) minmax(80px,1fr) 84px minmax(60px,.7fr) 24px}
+.lg-two .ptr.r-pay{grid-template-columns:122px 100px minmax(100px,1fr) 24px}
+.lg-two .ptr{padding-left:12px;padding-right:10px}
+.lg-two .ptr .in{padding-left:8px;padding-right:8px}
 .lg-col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .pj-card > h3.lg-h{background:#0B1B33;color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 16px}
 .lg-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,170px);align-items:center;gap:10px;padding:6px 16px;min-height:44px;border-bottom:1px solid var(--line);font-size:14px}
@@ -1554,29 +1576,21 @@ function drProject(p){
             ${lg('Falta por cobrar', cv('falta', c.price>0&&c.falta>0.004?'neg':''), 'Precio − total cobrado', 'tot')}
             ${lg('% cobrado', cv('pct'))}
           </section>
-          <section class="card pj-card lg"><h3 class="lg-h">Gastos</h3>
-            ${lg('Compras / materiales', cv('compras'), 'Suma de la tabla "Compras"')}
-            ${lg('+ Subcontratistas – costo total', cv('subCost'), 'Suma de "Costo acordado"')}
-            ${lg('= Total gastos', cv('gastos'), 'Compras + costo total de subcontratistas', 'tot')}
-            ${lg('Subcontratistas – ya pagado', cv('subPaid'))}
-            ${lg('Subcontratistas – falta pagar', cv('subFalta', c.subFalta>0.004?'neg':''), 'Costo total − ya pagado')}
-          </section>
-          <section class="card pj-card lg"><h3 class="lg-h">Ganancia</h3>
-            ${lg('Precio al cliente', cv('price'))}
-            ${lg('− Total gastos', cv('gastos'))}
-            ${lg('= Ganancia neta', cv('ganancia', c.ganancia<0?'neg':''), c.price?'Precio − total gastos':'', 'tot big')}
-            ${lg('Margen de ganancia', cv('margen'), 'Ganancia ÷ precio')}
-            ${lg('Efectivo en mano hoy', cv('efectivo'), 'Total cobrado − compras − pagado a subs')}
-            ${c.price?'':lg('Ganancia anotada', inp('profitNote','money','0'), 'Solo si el proyecto no tiene precio')}
-          </section>
-        </div>
-        <div class="lg-col">
           <section class="card pj-card"><div class="pj-card-h"><h3>Pagos recibidos del cliente (después del down)</h3><button class="btn sm" data-act="row-add" data-list="payments">${I.plus} Agregar pago</button></div>
             ${pays.length ? `<div class="ptbl">
               <div class="ptr hd r-pay"><span>Fecha</span><span>Monto</span><span>Nota</span><span></span></div>
               ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Nota')}${del('payments',i)}</div>`).join('')}
               <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
             </div>` : `<div class="lempty">Sin pagos después del down. Los pagos de las facturas de este proyecto aparecen aquí solos.</div>`}
+          </section>
+        </div>
+        <div class="lg-col">
+          <section class="card pj-card lg"><h3 class="lg-h">Gastos</h3>
+            ${lg('Compras / materiales', cv('compras'), 'Suma de la tabla "Compras"')}
+            ${lg('+ Subcontratistas – costo total', cv('subCost'), 'Suma de "Costo acordado"')}
+            ${lg('= Total gastos', cv('gastos'), 'Compras + costo total de subcontratistas', 'tot')}
+            ${lg('Subcontratistas – ya pagado', cv('subPaid'))}
+            ${lg('Subcontratistas – falta pagar', cv('subFalta', c.subFalta>0.004?'neg':''), 'Costo total − ya pagado')}
           </section>
           <section class="card pj-card"><div class="pj-card-h"><h3>Subcontratistas</h3><button class="btn sm" data-act="row-add" data-list="subs">${I.plus} Agregar subcontratista</button></div>
             ${subs.length ? `<div class="ptbl">
@@ -1592,6 +1606,14 @@ function drProject(p){
               <div class="ptr tot r-buy"><span>Total</span><span></span><span></span><b data-calc="compras">${c.comprasTxt}</b><span></span><span></span></div>
             </div>` : `<div class="lempty">Todavía no hay compras anotadas.</div>`}
             ${linkedExp(p)}
+          </section>
+          <section class="card pj-card lg"><h3 class="lg-h">Ganancia</h3>
+            ${lg('Precio al cliente', cv('price'))}
+            ${lg('− Total gastos', cv('gastos'))}
+            ${lg('= Ganancia neta', cv('ganancia', c.ganancia<0?'neg':''), c.price?'Precio − total gastos':'', 'tot big')}
+            ${lg('Margen de ganancia', cv('margen'), 'Ganancia ÷ precio')}
+            ${lg('Efectivo en mano hoy', cv('efectivo'), 'Total cobrado − compras − pagado a subs')}
+            ${c.price?'':lg('Ganancia anotada', inp('profitNote','money','0'), 'Solo si el proyecto no tiene precio')}
           </section>
         </div>
       </div>
@@ -2548,9 +2570,7 @@ function docEdit(d, coll, isInv){
       <div class="dp-head">
         <div class="dp-left">
           ${custBox(d, isInv)}
-          <label class="f"><span>Dirección del trabajo (Property)</span><input class="in plain" data-k="property" list="props" placeholder="Dirección donde se hace el trabajo" value="${esc(d.property||'')}"></label>
-          <datalist id="props">${props.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
-          ${props.length>1?`<button type="button" class="linkbtn pp-link" data-act="prop-choose">Elegir entre las ${props.length} propiedades de este cliente</button>`:''}
+          <label class="f"><span>Dirección del trabajo (Property)</span>${combo(`<input class="in plain" data-k="property" placeholder="${props.length>1?`Elige entre las ${props.length} propiedades o escribe otra`:'Dirección donde se hace el trabajo'}" value="${esc(d.property||'')}" autocomplete="off">`, props, cl?`Propiedades de ${cl.name}`:'')}</label>
           <label class="f"><span>Proyecto</span><select class="in plain" data-k="projectId">${projOpts}</select></label>
         </div>
         <div class="dp-meta">
@@ -2651,6 +2671,35 @@ function docView(d, coll, isInv){
     <div class="doc-danger"><button class="btn ghost danger" data-act="doc-del-ask">${I.trash} Eliminar ${docLabel(coll)}</button></div>
   </div>`;
 }
+/* Custom dropdown for address fields: our own list instead of the browser's plain one */
+function combo(inputHTML, options, title='', id=''){ return `<div class="combo" ${id?`id="${id}"`:''} data-options="${esc(JSON.stringify(options||[]))}" data-title="${esc(title)}">${inputHTML}<button type="button" class="combo-tg" tabindex="-1" aria-label="Ver propiedades">${I.down||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'}</button><div class="combo-pop" hidden></div></div>`; }
+const PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+function comboOpen(cb, all){
+  const inp = cb.querySelector('input'), pop = cb.querySelector('.combo-pop'); let opts = []; try { opts = JSON.parse(cb.dataset.options||'[]'); } catch(_){}
+  cb.classList.toggle('has', opts.length>0);
+  if (!opts.length){ pop.hidden = true; return; }
+  const q = all ? '' : inp.value.trim().toLowerCase();
+  const exact = opts.some(x=>x.toLowerCase()===q);
+  const hits = (q && !exact) ? opts.filter(x=>x.toLowerCase().includes(q)) : opts;
+  pop.innerHTML = `${cb.dataset.title?`<div class="combo-h">${esc(cb.dataset.title)} · ${opts.length}</div>`:''}<div class="combo-list">${hits.map(x=>`<button type="button" class="combo-it ${x.toLowerCase()===inp.value.trim().toLowerCase()?'on':''}" data-v="${esc(x)}"><span class="combo-pin">${PIN}</span><span>${esc(x)}</span></button>`).join('') || `<div class="combo-none">Ninguna propiedad guardada coincide. Se usará la dirección que escribas y quedará guardada para este cliente.</div>`}</div>`;
+  pop.hidden = false; cb._i = -1;
+}
+function comboClose(cb){ const pop = cb.querySelector('.combo-pop'); if (pop) pop.hidden = true; }
+function comboPick(cb, v){ const inp = cb.querySelector('input'); inp.value = v; inp.dispatchEvent(new Event('input', {bubbles:true})); inp.dispatchEvent(new Event('change', {bubbles:true})); comboClose(cb); }
+document.addEventListener('focusin', e => { const cb = e.target.closest?.('.combo'); if (cb && e.target.matches('input')) comboOpen(cb, true); });
+document.addEventListener('input', e => { const cb = e.target.closest?.('.combo'); if (cb && e.isTrusted) comboOpen(cb); });
+document.addEventListener('mousedown', e => {
+  const it = e.target.closest?.('.combo-it'); if (it){ e.preventDefault(); return comboPick(it.closest('.combo'), it.dataset.v); }
+  const tg = e.target.closest?.('.combo-tg'); if (tg){ e.preventDefault(); const cb = tg.closest('.combo'); const pop = cb.querySelector('.combo-pop'); if (pop.hidden){ cb.querySelector('input').focus(); comboOpen(cb, true); } else comboClose(cb); return; }
+  document.querySelectorAll('.combo').forEach(cb => { if (!cb.contains(e.target)) comboClose(cb); });
+});
+document.addEventListener('focusout', e => { const cb = e.target.closest?.('.combo'); if (cb) setTimeout(()=>{ if (!cb.contains(document.activeElement)) comboClose(cb); }, 120); });
+document.addEventListener('keydown', e => {
+  const cb = e.target.closest?.('.combo'); if (!cb) return; const pop = cb.querySelector('.combo-pop'); const its = [...pop.querySelectorAll('.combo-it')];
+  if (e.key==='Escape' && !pop.hidden){ e.stopPropagation(); return comboClose(cb); }
+  if (e.key==='ArrowDown' || e.key==='ArrowUp'){ if (pop.hidden) comboOpen(cb, true); else { cb._i = Math.max(0, Math.min(its.length-1, (cb._i??-1) + (e.key==='ArrowDown'?1:-1))); its.forEach((x,i)=>x.classList.toggle('kb', i===cb._i)); its[cb._i]?.scrollIntoView({block:'nearest'}); } e.preventDefault(); }
+  if (e.key==='Enter' && !pop.hidden && its[cb._i]){ e.preventDefault(); comboPick(cb, its[cb._i].dataset.v); }
+}, true);
 /* A client can own many properties: list them, search them, pick one */
 function clientProps(c){ if (!c) return []; const seen = new Set(), out = []; [jobAddr(c), ...(c.properties||[])].forEach(x=>{ const v=String(x||'').trim(); const k=v.toLowerCase(); if (v && !seen.has(k)){ seen.add(k); out.push(v); } }); return out; }
 function rememberProp(clientId, prop){ const c = S.clients[clientId]; prop = String(prop||'').trim(); if (!c || !prop) return; if (clientProps(c).some(x=>x.toLowerCase()===prop.toLowerCase())) return; (c.properties ||= []).push(prop); persist('clients', c, true); }
@@ -2664,7 +2713,7 @@ function propModal(clientId, then){
 function renderPropList(q){
   const el = $('#pp-list'), c = S.clients[S.propPick?.clientId]; if (!el || !c) return; q = (q||'').toLowerCase().trim();
   const ps = clientProps(c).filter(x=>!q || x.toLowerCase().includes(q));
-  el.innerHTML = ps.map(x=>`<button class="pc-item" data-act="prop-pick" data-prop="${esc(x)}"><span class="pp-pin">${I.home||I.panel}</span><b style="text-align:left">${esc(x)}</b></button>`).join('') || '<p class="muted" style="padding:10px">No hay propiedades con esa dirección. Escríbela abajo para agregarla.</p>';
+  el.innerHTML = ps.map(x=>`<button class="pc-item" data-act="prop-pick" data-prop="${esc(x)}"><span class="combo-pin">${PIN}</span><span style="text-align:left">${esc(x)}</span></button>`).join('') || '<p class="muted" style="padding:10px">No hay propiedades con esa dirección. Escríbela abajo para agregarla.</p>';
 }
 async function propChosen(prop){
   const pk = S.propPick; if (!pk) return; prop = String(prop||'').trim(); if (!prop) return;
@@ -3475,7 +3524,7 @@ function quickModal(){
         <label class="f"><span>Email del cliente</span><input class="in plain" id="qs-email" type="email" placeholder="cliente@email.com" autocomplete="off"></label>
       </div>
       <datalist id="qs-clients">${list('clients').sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist>
-      <label class="f"><span>Dirección del trabajo (opcional)</span><input class="in plain" id="qs-prop" list="qs-props" placeholder="Dirección" autocomplete="off"></label><datalist id="qs-props"></datalist>
+      <label class="f"><span>Dirección del trabajo (opcional)</span>${combo(`<input class="in plain" id="qs-prop" placeholder="Dirección" autocomplete="off">`, [], '', 'qs-combo')}</label>
       <label class="f"><span>Servicio (en inglés, así lo ve el cliente)</span><input class="in plain" id="qs-desc" placeholder="Ej. Service call, Drywall patch" autocomplete="off"></label>
       <div id="qs-sug" class="qs-sug"></div>
       <label class="f"><span>Monto a cobrar</span><input class="in plain n" id="qs-amt" inputmode="decimal" placeholder="0.00"></label>
@@ -3495,7 +3544,7 @@ function quickSuggest(){
 }
 $('#modal').addEventListener('input', e => {
   if (e.target.id==='qs-desc') quickSuggest();
-  if (e.target.id==='qs-client'){ const c = list('clients').find(x=>(x.name||'').toLowerCase()===e.target.value.trim().toLowerCase()); if (c){ if (c.email) $('#qs-email').value = c.email; const ps = clientProps(c); $('#qs-props').innerHTML = ps.map(x=>`<option value="${esc(x)}">`).join(''); if (ps.length===1 && !$('#qs-prop').value) $('#qs-prop').value = ps[0]; $('#qs-prop').placeholder = ps.length>1 ? `Elige entre sus ${ps.length} propiedades o escribe otra` : 'Dirección'; } }
+  if (e.target.id==='qs-client'){ const c = list('clients').find(x=>(x.name||'').toLowerCase()===e.target.value.trim().toLowerCase()); if (c){ if (c.email) $('#qs-email').value = c.email; const ps = clientProps(c); const cb = $('#qs-combo'); cb.dataset.options = JSON.stringify(ps); cb.dataset.title = `Propiedades de ${c.name}`; if (ps.length===1 && !$('#qs-prop').value) $('#qs-prop').value = ps[0]; $('#qs-prop').placeholder = ps.length>1 ? `Elige entre sus ${ps.length} propiedades o escribe otra` : 'Dirección'; } }
 });
 async function quickSave(send){
   const msg = t => { $('#qs-msg').innerHTML = `<div class="note bad">${t}</div>`; };
