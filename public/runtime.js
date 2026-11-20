@@ -48,27 +48,27 @@
   const ungate = () => $('#kgate')?.remove();
 
   function loginScreen(mode = 'in', note = '') {
-    const title = { in: 'Entrar', up: 'Crear cuenta', reset: 'Enviar enlace', newpw: 'Guardar contraseña' }[mode];
+    const title = { in: 'Sign in', up: 'Create account', reset: 'Send link', newpw: 'Save password' }[mode];
     const g = gate(`
       <form id="kform" style="display:flex;flex-direction:column;gap:14px">
         ${mode !== 'newpw' ? '<label>Email<input id="kemail" type="email" autocomplete="username" required></label>' : ''}
-        ${mode !== 'reset' ? `<label>${mode === 'newpw' ? 'Nueva contraseña' : 'Contraseña'}<input id="kpass" type="password" autocomplete="${mode === 'in' ? 'current-password' : 'new-password'}" minlength="8" required></label>` : ''}
+        ${mode !== 'reset' ? `<label>${mode === 'newpw' ? 'New password' : 'Password'}<input id="kpass" type="password" autocomplete="${mode === 'in' ? 'current-password' : 'new-password'}" minlength="8" required></label>` : ''}
         <div class="msg" id="kmsg">${note}</div>
         <button class="go" type="submit">${title}</button>
       </form>
-      ${mode === 'in' ? (cfg && cfg.hasOwner === false ? '<button class="alt" data-m="up">Primera vez: crear mi cuenta</button>' : '') + '<button class="alt" data-m="reset">Olvidé mi contraseña</button>' : mode === 'newpw' ? '' : '<button class="alt" data-m="in">Ya tengo cuenta: entrar</button>'}`);
+      ${mode === 'in' ? (cfg && cfg.hasOwner === false ? '<button class="alt" data-m="up">First time: create my account</button>' : '') + '<button class="alt" data-m="reset">Forgot my password</button>' : mode === 'newpw' ? '' : '<button class="alt" data-m="in">I already have an account: sign in</button>'}`);
     g.querySelectorAll('.alt').forEach(b => (b.onclick = () => loginScreen(b.dataset.m)));
     const msg = (t, bad) => { const m = $('#kmsg'); m.textContent = t; m.className = 'msg' + (bad ? ' bad' : ''); };
     $('#kform').onsubmit = async ev => {
       ev.preventDefault();
-      const btn = g.querySelector('.go'); btn.disabled = true; msg('Un momento…');
+      const btn = g.querySelector('.go'); btn.disabled = true; msg('One moment…');
       const email = $('#kemail')?.value.trim(), password = $('#kpass')?.value;
       try {
         if (mode === 'in') { const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error; }
         else if (mode === 'up') {
           const r = await fetch('/api/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
           const j = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(j.message || 'No se pudo crear la cuenta.');
+          if (!r.ok) throw new Error(j.message || 'Could not create the account.');
           const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error;
         } else if (mode === 'reset') {
           const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });

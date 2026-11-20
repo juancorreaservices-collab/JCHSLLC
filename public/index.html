@@ -383,6 +383,13 @@ details.menu > summary::-webkit-details-marker{display:none}
 .dp-cols{padding:0 22px}
 .editcols{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);font-weight:700;padding:8px 12px;border-radius:8px 8px 0 0}
 .dp-items{display:flex;flex-direction:column}
+.dp-desc{position:relative;display:flex;flex-direction:column;gap:3px;min-width:0}
+.dp-desc.mic > input{padding-right:38px}
+.item-mic{position:absolute;right:4px;top:4px;width:30px;height:30px;border:0;background:none;border-radius:8px;display:grid;place-items:center;color:var(--ink-3);cursor:pointer}
+.item-mic:hover{background:var(--surface-2);color:var(--ink)}
+.item-mic.on{background:var(--bad-soft);color:var(--bad)}
+.item-mic svg{width:16px;height:16px}
+.item-st{font-size:12px;color:var(--ink-3)}
 .dp-irow{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px 120px 36px;gap:10px;align-items:center;padding:8px 22px;border-bottom:1px solid var(--line)}
 .dp-items.with-area .dp-irow{grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) 90px 120px 120px 36px}
 .dp-irow.hd{background:var(--surface-2);font-weight:700;padding-block:12px;border-bottom:1px solid var(--line)}
@@ -1985,6 +1992,7 @@ async function act(name, el){
       AI.dict.start().catch(e => { AI.micEl = null; toast(e?.code==='not_granted' ? 'Permiso de micrófono negado.' : e?.code==='stopped' ? '' : 'No se pudo usar el micrófono.'); });
       return;
     }
+    case 'item-mic': return itemMicStart(el.dataset.i);
     case 'ai-mic': {
       if (!AI.dict) return;
       if (AI.listening){ AI.dict.stop().catch(()=>{}); return; }
@@ -2287,10 +2295,11 @@ async function aiInit(){
   claude.use('sample').then(s => { AI.sample = s; if (S.view==='doc') renderDocNow(); });
   claude.use('dictation').then(d => {
     AI.dict = d; if (!d) return;
-    d.onPartial(({text}) => { const p = AI.micEl?.classList.contains('micbtn') ? AI.micEl.parentElement.querySelector('.dictp') : $('#ai-partial'); if (p) p.textContent = text; });
-    d.onFinal(({text}) => { const t = (AI.target && document.contains(AI.target)) ? AI.target : $('#ai-in'); if (t){ t.value = (t.value ? t.value.replace(/\s+$/,'') + ' ' : '') + text; t.dispatchEvent(new Event('input', {bubbles:true})); } document.querySelectorAll('.ai-partial').forEach(p=>p.textContent=''); });
+    d.onPartial(({text}) => { if (AI.itemMic!=null){ const st = $('.dp-desc .item-st'); if (st) st.textContent = text || 'Listening… tap the mic to finish'; return; } const p = AI.micEl?.classList.contains('micbtn') ? AI.micEl.parentElement.querySelector('.dictp') : $('#ai-partial'); if (p) p.textContent = text; });
+    d.onFinal(({text}) => { if (AI.itemMic!=null){ AI.itemBuf = (AI.itemBuf ? AI.itemBuf+' ' : '') + text; return; } const t = (AI.target && document.contains(AI.target)) ? AI.target : $('#ai-in'); if (t){ t.value = (t.value ? t.value.replace(/\s+$/,'') + ' ' : '') + text; t.dispatchEvent(new Event('input', {bubbles:true})); } document.querySelectorAll('.ai-partial').forEach(p=>p.textContent=''); });
     d.onState(({state}) => { AI.listening = state !== 'idle';
       document.querySelectorAll('#ai-mic,.micbtn').forEach(b => { const on = AI.listening && (b === AI.micEl || (b.id==='ai-mic' && !AI.micEl?.classList.contains('micbtn'))); b.classList.toggle('on', on); b.innerHTML = on ? `${I.mic} Detener` : `${I.mic} Dictar`; });
+      if (!AI.listening && AI.itemMic!=null) itemDictDone();
       if (!AI.listening){ AI.micEl = null; document.querySelectorAll('.dictp').forEach(p=>p.textContent=''); } });
     if (S.view==='doc') renderDocNow();
   });
@@ -2551,6 +2560,39 @@ function aiApply(d, coll, r){
 
 /* ---------- Full-page estimate / invoice editor (same structure as Wave) ---------- */
 function peekNumber(kind){ const isInv = kind==='invoices'; return (S.settings[isInv?'invPrefix':'estPrefix']||'') + (N(S.settings[isInv?'invNext':'estNext'])||1001); }
+/* Dictate one line item: say it in Spanish or English and it is written as a professional English line */
+AI.itemMic = null; AI.itemBusy = null; AI.itemBuf = '';
+function itemMicStart(i){
+  if (!AI.dict || !S.doc?.draft) return;
+  if (AI.listening){ AI.dict.stop().catch(()=>{}); return; }
+  const d = S.doc.draft;
+  if (i==='new'){ (d.items ||= []).push({area:(d.items||[]).slice(-1)[0]?.area||'', desc:'', qty:1, rate:''}); i = d.items.length-1; }
+  AI.itemMic = +i; AI.itemBuf = ''; S.doc.dirty = true; renderDocNow();
+  AI.dict.start().catch(e => { AI.itemMic = null; renderDocNow(); toast(e?.code==='not_granted' ? 'Microphone permission was denied.' : e?.code==='stopped' ? '' : 'Could not use the microphone.'); });
+}
+async function itemDictDone(){
+  const i = AI.itemMic, text = (AI.itemBuf||'').trim(); AI.itemMic = null; AI.itemBuf = '';
+  const d = S.doc?.draft; const r = d?.items?.[i]; if (!r){ return; }
+  if (!text){ renderDocNow(); return; }
+  if (!AI.sample){ r.desc = (r.desc ? r.desc+' ' : '') + text; renderDocNow(); toast('Dictated text added. The AI that rewrites it in English is not set up yet.'); return; }
+  AI.itemBusy = i; renderDocNow();
+  try {
+    const areas = [...new Set((d.items||[]).map(x=>x.area).filter(Boolean))];
+    const res = await AI.sample.json(`You write ONE line item for ${S.doc.coll==='invoices'?'an invoice':'an estimate'} from JC Home Services, a home repair and remodeling contractor in Southwest Florida. The owner dictated the item by voice in Spanish or English, so expect informal wording, numbers said as words and small transcription mistakes.
+
+Reply with ONLY one JSON object, no other text: {"area": string|null, "desc": string, "qty": number, "rate": number|null}
+- "desc": the work, rewritten as one clear, professional line in ENGLISH (sentence case, no price in it). Translate Spanish. Keep every detail the owner gave (materials, sizes, rooms, brands). Do not add work that was not said.
+- "area": the part of the house in English (for example Kitchen, Master Bathroom, Exterior, Interior Painting) only if it was said or is obvious; otherwise null. Areas already used in this document: ${JSON.stringify(areas)}.
+- "qty": the quantity if one was said, otherwise 1.
+- "rate": the price of ONE unit as a plain number if a price was said, otherwise null. If a total and a quantity were both said, divide. Never invent a price.
+
+${r.desc ? `The line currently reads: ${JSON.stringify(r.desc)}. The dictation changes or adds to it.\n\n` : ''}Dictation: ${JSON.stringify(text)}`, { cache:false });
+    if (res && typeof res.desc==='string' && res.desc.trim()){
+      r.desc = res.desc.trim(); if (res.area && !r.area) r.area = String(res.area); if (N(res.qty)>0) r.qty = N(res.qty); if (res.rate!=null && N(res.rate)>0) r.rate = N(res.rate);
+    } else r.desc = (r.desc ? r.desc+' ' : '') + text;
+  } catch(e){ r.desc = (r.desc ? r.desc+' ' : '') + text; toast('The item was added as dictated; it could not be rewritten.'); }
+  AI.itemBusy = null; S.doc.dirty = true; renderDocNow();
+}
 function openDoc(coll, id, mode, draft, isNew){
   if (S.drawer) closeDrawer();
   S.doc = {coll, id, mode, draft: mode==='edit' ? (draft || structuredClone(S[coll][id])) : null, isNew: !!isNew, dirty: !!isNew, bizOpen:true, cols:false};
@@ -2633,9 +2675,9 @@ function docEdit(d, coll, isInv){
       </div>
       <div class="dp-items ${showArea?'with-area':''}">
         <div class="dp-irow hd"><span>Descripción</span>${showArea?'<span>Área</span>':''}${eyeHd('qty','Cantidad',cols.qty)}${eyeHd('price','Precio',cols.price)}${eyeHd('amount','Monto',cols.amount)}<span></span></div>
-        ${(d.items||[]).map((r,i)=>`<div class="dp-irow">${li(i,'desc',r.desc,'text','Escribe para buscar en tus productos…')}${showArea?li(i,'area',r.area,'text','Ej. Kitchen'):''}${li(i,'qty',r.qty,'qty','1')}${li(i,'rate',r.rate,'money','0.00')}<b class="num r" data-line="${i}">${fmt(N(r.qty||1)*N(r.rate),1)}</b><button class="icon-btn" data-act="row-del" data-list="items" data-i="${i}" aria-label="Quitar item">${I.trash}</button></div>`).join('')}
+        ${(d.items||[]).map((r,i)=>`<div class="dp-irow"><span class="dp-desc ${AI.dict?'mic':''}">${li(i,'desc',r.desc,'text','Escribe para buscar en tus productos…')}${AI.dict?`<button type="button" class="item-mic ${AI.itemMic===i?'on':''}" data-act="item-mic" data-i="${i}" aria-label="Dictate this item" title="Dictate this item (Spanish or English)">${I.mic}</button>`:''}${AI.itemMic===i||AI.itemBusy===i?`<small class="item-st">${AI.itemBusy===i?'Writing it in English…':'Listening… tap the mic to finish'}</small>`:''}</span>${showArea?li(i,'area',r.area,'text','Ej. Kitchen'):''}${li(i,'qty',r.qty,'qty','1')}${li(i,'rate',r.rate,'money','0.00')}<b class="num r" data-line="${i}">${fmt(N(r.qty||1)*N(r.rate),1)}</b><button class="icon-btn" data-act="row-del" data-list="items" data-i="${i}" aria-label="Quitar item">${I.trash}</button></div>`).join('')}
         ${!cols.qty||!cols.price||!cols.amount?`<div class="hidnote">${I.eyeoff} El cliente no verá: ${[!cols.qty&&'cantidad',!cols.price&&'precio',!cols.amount&&'monto'].filter(Boolean).join(', ')}. ${!cols.qty&&!cols.price&&!cols.amount?'Verá los trabajos agrupados por área y el total.':''} Toca el ojito para cambiarlo.</div>`:''}
-        <div class="dp-add"><button class="linkbtn" data-act="row-add" data-list="items">${I.plus} Agregar item</button><button class="linkbtn muted-l" data-act="save-items">Guardar items en mis productos</button></div>
+        <div class="dp-add"><button class="linkbtn" data-act="row-add" data-list="items">${I.plus} Agregar item</button>${AI.dict?`<button class="linkbtn" data-act="item-mic" data-i="new">${I.mic} Dictate an item</button>`:''}<button class="linkbtn muted-l" data-act="save-items">Guardar items en mis productos</button></div>
       </div>
       <datalist id="areas">${[...new Set(['Interior Painting','Exterior','General Interior','Kitchen','Master Bathroom','Guest Bathroom','Laundry Room','Jacuzzi','Flooring','Demolition','Final Cleaning', ...list('items').map(x=>x.area).filter(Boolean)])].map(a=>`<option value="${esc(a)}">`).join('')}</datalist>
       <datalist id="catalog">${list('items').map(x=>`<option value="${esc(x.name)}">${x.price?fmt(x.price,1):''}</option>`).join('')}</datalist>
