@@ -72,13 +72,13 @@
           const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error;
         } else if (mode === 'reset') {
           const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
-          if (error) throw error; msg('Si ese email tiene cuenta, te llegó un enlace para cambiar la contraseña.'); btn.disabled = false; return;
+          if (error) throw error; msg('If that email has an account, we sent a link to reset the password.'); btn.disabled = false; return;
         } else if (mode === 'newpw') {
           const { error } = await sb.auth.updateUser({ password }); if (error) throw error;
           history.replaceState(null, '', location.pathname); await enter(); return;
         }
       } catch (e) {
-        const t = /invalid login/i.test(e.message) ? 'Email o contraseña incorrectos.' : /not confirmed/i.test(e.message) ? 'Confirma tu email primero: revisa tu correo.' : /already registered/i.test(e.message) ? 'Ese email ya tiene cuenta. Toca "Ya tengo cuenta".' : /rate limit|security purposes/i.test(e.message) ? 'Demasiados intentos. Espera un minuto y prueba otra vez.' : (e.message || 'No se pudo entrar.');
+        const t = /invalid login/i.test(e.message) ? 'Incorrect email or password.' : /not confirmed/i.test(e.message) ? 'Confirm your email first: check your inbox.' : /already registered/i.test(e.message) ? 'That email already has an account. Tap "I already have an account".' : /rate limit|security purposes/i.test(e.message) ? 'Too many attempts. Wait a minute and try again.' : (e.message || 'Could not sign in.');
         msg(t, true); btn.disabled = false;
       }
     };
@@ -92,11 +92,11 @@
   let entered = false;
   async function enter() {
     const { data } = await sb.auth.getSession(); session = data.session;
-    if (!session) return loginScreen(cfg.hasOwner === false ? 'up' : 'in', cfg.hasOwner === false ? 'Bienvenido. Crea tu cuenta de dueño: escribe tu email y una contraseña de 8 letras o más.' : '');
+    if (!session) return loginScreen(cfg.hasOwner === false ? 'up' : 'in', cfg.hasOwner === false ? 'Welcome. Create your owner account: enter your email and a password of 8 or more characters.' : '');
     setCookie(session.access_token);
     const { data: ok, error } = await sb.rpc('claim_owner');
-    if (error) return gate(`<div class="msg bad">La base de datos todavía no está lista (${error.message}). Falta correr el archivo supabase/schema.sql en Supabase.</div><button class="alt" id="kout">Cerrar sesión</button>`).querySelector('#kout').addEventListener('click', signOut);
-    if (!ok) return gate(`<div class="msg bad">La cuenta ${session.user.email} no tiene acceso a esta Kuadra. Pídele al dueño que te agregue en Cuenta → Usuarios.</div><button class="alt" id="kout">Entrar con otra cuenta</button>`).querySelector('#kout').addEventListener('click', signOut);
+    if (error) return gate(`<div class="msg bad">The database is not ready yet (${error.message}). The file supabase/schema.sql still needs to be run in Supabase.</div><button class="alt" id="kout">Sign out</button>`).querySelector('#kout').addEventListener('click', signOut);
+    if (!ok) return gate(`<div class="msg bad">The account ${session.user.email} does not have access to this Kuadra. Ask the owner to add you under Account → Users.</div><button class="alt" id="kout">Sign in with another account</button>`).querySelector('#kout').addEventListener('click', signOut);
     ungate();
     if (!entered) { entered = true; readyResolve(); accountButton(); }
   }
@@ -106,7 +106,7 @@
     const { data } = await sb.auth.getSession(); const tok = data.session?.access_token;
     let r;
     try { r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` }, body: JSON.stringify(body || {}) }); }
-    catch (_) { throw err('server_unavailable', 'Sin conexión'); }
+    catch (_) { throw err('server_unavailable', 'No connection'); }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw err(j.code || (r.status === 413 ? 'prompt_too_large' : 'upstream_error'), j.message || `HTTP ${r.status}`);
     return j;
@@ -302,7 +302,7 @@
   function accountButton() {
     const foot = $('.side-foot'); if (!foot || $('.kacct-btn')) return;
     const b = document.createElement('button'); b.className = 'kacct-btn'; b.type = 'button';
-    b.innerHTML = `<b>${session.user.email}</b>`; b.title = 'Cuenta'; b.onclick = accountPanel; foot.prepend(b);
+    b.innerHTML = `<b>${session.user.email}</b>`; b.title = 'Account'; b.onclick = accountPanel; foot.prepend(b);
     const mob = $('.mob-top .dbstate'); if (mob) { mob.style.cursor = 'pointer'; mob.onclick = accountPanel; }
   }
   const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -314,33 +314,33 @@
     let gmail = null; if (cfg.features.gmail) { try { gmail = (await api('/api/gmail', { tool: 'status' })).payload; } catch (e) { gmail = { connected: false, code: e.code }; } }
     const f = cfg.features;
     w.innerHTML = `<div class="box">
-      <div class="row"><h3 style="flex:1">Cuenta</h3><button class="btn sm" data-a="close">Cerrar</button></div>
-      <div class="row"><span>${escH(session.user.email)}</span><button class="btn sm" data-a="out">Cerrar sesión</button></div>
-      <h4>Usuarios con acceso</h4>
-      ${(users || []).map(u => `<div class="row"><span>${escH(u.email)}</span>${u.email.toLowerCase() !== session.user.email.toLowerCase() ? `<button class="btn sm ghost" data-a="deluser" data-e="${escH(u.email)}">Quitar</button>` : ''}</div>`).join('')}
-      <div class="row"><input class="in" id="knew" type="email" placeholder="email@ejemplo.com" style="flex:1"><button class="btn sm" data-a="adduser">Agregar</button></div>
-      <small>Por ahora las cuentas nuevas están bloqueadas: nadie más puede crear una cuenta.</small>
-      <h4>Conexiones</h4>
-      <div class="row"><span>Gmail: ${!f.gmail ? 'falta configurar Google en Vercel' : gmail?.connected ? 'conectado · ' + escH(gmail.email) : gmail?.code === 'needs_reauth' ? 'Google rechazó la contraseña de aplicación' : 'sin conectar'}</span>${f.gmail && f.gmailMode !== 'app_password' ? `<button class="btn sm" data-act="gmail-connect">${gmail?.connected ? 'Reconectar' : 'Conectar Gmail'}</button>` : ''}</div>
-      <div class="row"><span>IA (Claude): ${f.ai ? 'activa' : 'falta la clave en Vercel'}</span></div>
-      <div class="row"><span>Commas (pagos): ${f.commas ? 'conectado' : 'falta la clave en Vercel'}</span></div>
-      <h4>Respaldo</h4>
-      <div class="row"><button class="btn sm" data-a="export">Descargar respaldo</button><label class="btn sm">Importar respaldo<input type="file" id="kimp" accept="application/json,.json" hidden></label></div>
-      <small id="kamsg">El respaldo guarda todos tus datos en un archivo. Importar agrega y actualiza; no borra nada.</small>
+      <div class="row"><h3 style="flex:1">Account</h3><button class="btn sm" data-a="close">Close</button></div>
+      <div class="row"><span>${escH(session.user.email)}</span><button class="btn sm" data-a="out">Sign out</button></div>
+      <h4>Users with access</h4>
+      ${(users || []).map(u => `<div class="row"><span>${escH(u.email)}</span>${u.email.toLowerCase() !== session.user.email.toLowerCase() ? `<button class="btn sm ghost" data-a="deluser" data-e="${escH(u.email)}">Remove</button>` : ''}</div>`).join('')}
+      <div class="row"><input class="in" id="knew" type="email" placeholder="email@example.com" style="flex:1"><button class="btn sm" data-a="adduser">Add</button></div>
+      <small>New accounts are blocked for now: no one else can create an account.</small>
+      <h4>Connections</h4>
+      <div class="row"><span>Gmail: ${!f.gmail ? 'Google is not set up in Vercel' : gmail?.connected ? 'connected · ' + escH(gmail.email) : gmail?.code === 'needs_reauth' ? 'Google rejected the app password' : 'not connected'}</span>${f.gmail && f.gmailMode !== 'app_password' ? `<button class="btn sm" data-act="gmail-connect">${gmail?.connected ? 'Reconnect' : 'Connect Gmail'}</button>` : ''}</div>
+      <div class="row"><span>AI (Claude): ${f.ai ? 'active' : 'key missing in Vercel'}</span></div>
+      <div class="row"><span>Commas (payments): ${f.commas ? 'connected' : 'key missing in Vercel'}</span></div>
+      <h4>Backup</h4>
+      <div class="row"><button class="btn sm" data-a="export">Download backup</button><label class="btn sm">Import backup<input type="file" id="kimp" accept="application/json,.json" hidden></label></div>
+      <small id="kamsg">The backup saves all your data in one file. Importing adds and updates; it does not delete anything.</small>
     </div>`;
     const say = t => ($('#kamsg').textContent = t);
     w.addEventListener('click', async e => {
       const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
       if (a === 'close') w.remove();
       if (a === 'out') signOut();
-      if (a === 'adduser') { const em = $('#knew').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return say('Escribe un email válido.'); const { error } = await sb.from('kuadra_users').upsert({ email: em }); if (error) return say(error.message); accountPanel(); }
+      if (a === 'adduser') { const em = $('#knew').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return say('Enter a valid email.'); const { error } = await sb.from('kuadra_users').upsert({ email: em }); if (error) return say(error.message); accountPanel(); }
       if (a === 'deluser') { await sb.from('kuadra_users').delete().eq('email', e.target.closest('[data-e]').dataset.e); accountPanel(); }
-      if (a === 'export') { try { const all = await db._all(); await downloads.save({ filename: `kuadra-respaldo-${new Date().toISOString().slice(0, 10)}.json`, data: new Blob([JSON.stringify({ kuadra: 1, at: new Date().toISOString(), data: all })], { type: 'application/json' }) }); say('Respaldo descargado.'); } catch (x) { say('No se pudo descargar: ' + x.message); } }
+      if (a === 'export') { try { const all = await db._all(); await downloads.save({ filename: `kuadra-backup-${new Date().toISOString().slice(0, 10)}.json`, data: new Blob([JSON.stringify({ kuadra: 1, at: new Date().toISOString(), data: all })], { type: 'application/json' }) }); say('Backup downloaded.'); } catch (x) { say('Could not download: ' + x.message); } }
     });
     $('#kimp').onchange = async ev => {
       const file = ev.target.files[0]; if (!file) return;
-      try { const j = JSON.parse(await file.text()); const data = j.data || j; if (typeof data !== 'object') throw new Error('archivo inválido'); say('Importando…'); const n = await db._import(data); say(`Listo: ${n} registros importados. Recargando…`); setTimeout(() => location.reload(), 900); }
-      catch (x) { say('No se pudo importar: ' + x.message); }
+      try { const j = JSON.parse(await file.text()); const data = j.data || j; if (typeof data !== 'object') throw new Error('invalid file'); say('Importing…'); const n = await db._import(data); say(`Done: ${n} records imported. Reloading…`); setTimeout(() => location.reload(), 900); }
+      catch (x) { say('Could not import: ' + x.message); }
     };
   }
   document.addEventListener('click', async e => {
@@ -368,15 +368,15 @@
   };
 
   (async () => {
-    gate('<div class="msg">Cargando…</div>');
+    gate('<div class="msg">Loading…</div>');
     try { cfg = await fetch('/api/config', { cache: 'no-store' }).then(r => r.json()); } catch (_) { cfg = null; }
     if (!cfg?.supabaseUrl || !cfg?.supabaseAnonKey || !window.supabase) {
-      return gate('<div class="msg bad">Kuadra todavía no está conectada a su base de datos. Faltan SUPABASE_URL y SUPABASE_ANON_KEY en Vercel → Settings → Environment Variables.</div>');
+      return gate('<div class="msg bad">Kuadra is not connected to its database yet. SUPABASE_URL and SUPABASE_ANON_KEY are missing in Vercel → Settings → Environment Variables.</div>');
     }
     if (!cfg.schema) {
-      gate('<div class="msg">Preparando Kuadra por primera vez…</div>');
+      gate('<div class="msg">Setting up Kuadra for the first time…</div>');
       const r = await fetch('/api/setup', { method: 'POST' }).then(async x => ({ ok: x.ok, j: await x.json().catch(() => ({})) })).catch(() => ({ ok: false, j: {} }));
-      if (!r.ok) return gate(`<div class="msg bad">No se pudo preparar la base de datos${r.j.message ? ': ' + r.j.message : '.'}</div>`);
+      if (!r.ok) return gate(`<div class="msg bad">Could not set up the database${r.j.message ? ': ' + r.j.message : '.'}</div>`);
       cfg = await fetch('/api/config', { cache: 'no-store' }).then(x => x.json());
       if (cfg.hasOwner == null) cfg.hasOwner = false;
     }
@@ -384,7 +384,7 @@
     const recovering = /type=recovery/.test(location.hash);
     sb.auth.onAuthStateChange((ev, s) => {
       session = s; setCookie(s?.access_token || '');
-      if (ev === 'PASSWORD_RECOVERY') loginScreen('newpw', 'Escribe tu nueva contraseña.');
+      if (ev === 'PASSWORD_RECOVERY') loginScreen('newpw', 'Enter your new password.');
       else if (ev === 'SIGNED_IN' && !entered && !recovering) setTimeout(enter, 0);
       else if (ev === 'SIGNED_OUT' && entered) location.reload();
     });

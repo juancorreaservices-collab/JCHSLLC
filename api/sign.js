@@ -14,11 +14,11 @@ const h = x => String(x || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&l
 async function notifyOwner(sb, share, name, site) {
   try {
     const { token, email } = await gmailAccessToken(sb); if (!email) return;
-    const subject = `Firmado: estimado ${share.number} - ${name}. Aprueba la factura`;
+    const subject = `Signed: estimate ${share.number} - ${name}. Approve the invoice`;
     const link = `${site}/#aprobar=${encodeURIComponent(share.estimateId)}`;
-    const text = `${name} firmó el estimado ${share.number}${share.property ? ' de ' + share.property : ''} por ${share.total}.\r\n\r\nKuadra ya creó el proyecto. Falta tu aprobación para enviarle la factura al cliente:\r\n${link}\r\n`;
+    const text = `${name} signed estimate ${share.number}${share.property ? ' for ' + share.property : ''}, total ${share.total}.\r\n\r\nKuadra already created the project. Your approval is needed to send the invoice to the client:\r\n${link}\r\n`;
     const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#0B1B33;max-width:560px">
-      <p style="font-size:16px;margin:0 0 12px"><b>${h(name)}</b> firmó el estimado <b>${h(share.number)}</b>${share.property ? ' de ' + h(share.property) : ''}.</p>
+      <p style="font-size:16px;margin:0 0 12px"><b>${h(name)}</b> signed estimate <b>${h(share.number)}</b>${share.property ? ' for ' + h(share.property) : ''}.</p>
       <p style="font-size:26px;font-weight:bold;margin:0 0 14px">${h(share.total)}</p>
       <p style="font-size:14px;color:#44536B;margin:0 0 18px">Kuadra ya creó el proyecto. Falta tu aprobación para enviarle la factura al cliente con el link de pago.</p>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#0B1B33" style="background-color:#0B1B33;border-radius:8px"><a href="${h(link)}" style="display:block;padding:14px 22px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px">Revisar y aprobar la factura</a></td></tr></table>
