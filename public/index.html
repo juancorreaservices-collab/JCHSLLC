@@ -382,6 +382,9 @@ details.menu > summary::-webkit-details-marker{display:none}
 .in.sm{padding:5px 8px;font-size:13px;width:auto;min-width:64px}
 .dp-cols{padding:0 22px}
 .editcols{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);font-weight:700;padding:8px 12px;border-radius:8px 8px 0 0}
+.viewline{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-3);margin:4px 0 0}
+.viewline svg{width:15px;height:15px}
+.viewline.seen{color:var(--ok);font-weight:600}
 .dp-items{display:flex;flex-direction:column}
 .dp-desc{position:relative;display:flex;flex-direction:column;gap:3px;min-width:0}
 .dp-desc.mic > input{padding-right:38px}
@@ -1056,12 +1059,12 @@ const DEFAULT_SETTINGS = {
 };
 const S = {
   db:null, mcp:null, dl:null, live:false, loaded:{},
-  projects:{}, clients:{}, estimates:{}, invoices:{}, services:{}, expenses:{}, items:{}, events:{}, calMonth:null, invTab:'unpaid', estTab:'active', docQ:'', cliQ:'', projTab:'resumen', sumMonth:'all', assets:null, repYear:null, expMonth:'all', expCat:'Todas',
+  projects:{}, clients:{}, estimates:{}, invoices:{}, services:{}, expenses:{}, items:{}, events:{}, views:{}, calMonth:null, invTab:'unpaid', estTab:'active', docQ:'', cliQ:'', projTab:'resumen', sumMonth:'all', assets:null, repYear:null, expMonth:'all', expCat:'Todas',
   settings:{...DEFAULT_SETTINGS},
   view:'panel', boardStart:null, boardFilter:'Todos', boardQ:'',
   docFilter:'Todos', mailQ:'in:inbox', drawer:null,
 };
-const COLL = ['projects','clients','estimates','invoices','services','expenses','items','events'];
+const COLL = ['projects','clients','estimates','invoices','services','expenses','items','events','views'];
 const list = c => Object.values(S[c]);
 const clientName = id => S.clients[id]?.name || '';
 
@@ -1318,6 +1321,7 @@ async function boot(){
         // keep unsaved local edits for the doc open in the drawer
         if (S.drawer && S.drawer.coll===c && next[S.drawer.id]) next[S.drawer.id] = S[c][S.drawer.id] || next[S.drawer.id];
         obOverlay(c, next);
+        if (c==='views' && S.loaded.views) for (const [id,v] of Object.entries(next)){ const o = S.views[id] || {}; if ((v.count||0) > (o.count||0) || (v.payClicks||0) > (o.payClicks||0)){ const d = S[v.coll]?.[id]; if (d) toast(`${clientName(d.clientId)||'The client'} ${(v.payClicks||0) > (o.payClicks||0) ? 'opened the payment page for' : 'viewed'} ${v.coll==='invoices'?'invoice':'estimate'} ${d.number}`); } }
         S[c] = next; S.loaded[c] = !snap.metadata.fromCache || S.loaded[c]; if (c==='estimates') setTimeout(watchReplies, 0); if (c==='estimates' || c==='invoices' || c==='clients') checkApprovals();
         if (!snap.metadata.fromCache){ S.live = true; clearTimeout(loadTimer); obStatus(); $('#banner').innerHTML=''; if (COLL.every(k=>S.loaded[k])) setTimeout(draftOffer, 600); }
         renderView();
@@ -2813,7 +2817,7 @@ function docView(d, coll, isInv){
     ${isInv && d.fromEstimate && S.estimates[d.fromEstimate] ? `<div class="note">Created from estimate <button class="linkbtn" data-act="open-est" data-id="${d.fromEstimate}">${esc(S.estimates[d.fromEstimate].number)}</button></div>`:''}
     <div class="steps">
       <section class="card step"><div class="step-i">1</div><div class="step-b"><h3>Create</h3><p class="muted">Created on ${fdate(d.createdAt||d.date)}</p></div><button class="btn sm" data-act="doc-edit">Edit ${docLabel(coll)}</button></section>
-      <section class="card step"><div class="step-i">2</div><div class="step-b"><h3>Send</h3><p class="muted">${sentLine}</p></div><div class="tools"><button class="btn sm ${d.sentAt?'':'primary'}" data-act="email-doc">${'Send '+docLabel(coll)}</button>${!d.sentAt && !isInv?`<button class="btn sm ghost" data-act="mark-sent">Mark as sent</button>`:''}</div></section>
+      <section class="card step"><div class="step-i">2</div><div class="step-b"><h3>Send</h3><p class="muted">${sentLine}</p>${viewLine(d)?`<p class="viewline ${S.views[d.id]?.count||S.views[d.id]?.payClicks?'seen':''}">${I.eye} ${esc(viewLine(d))}</p>`:''}</div><div class="tools"><button class="btn sm ${d.sentAt?'':'primary'}" data-act="email-doc">${'Send '+docLabel(coll)}</button>${!d.sentAt && !isInv?`<button class="btn sm ghost" data-act="mark-sent">Mark as sent</button>`:''}</div></section>
       ${isInv ? `<section class="card step col"><div style="display:flex;gap:14px;align-items:flex-start;width:100%;flex-wrap:wrap"><div class="step-i">3</div><div class="step-b"><h3>Collect</h3><p class="muted">Balance ${fmt(t.balance,1)} of ${fmt(t.total,1)}</p></div>${t.balance>0.004?'':'<span class="pill ok">Paid</span>'}</div>
           ${pays.length?`<div class="rows" style="width:100%">${pays.map((p,i)=>`<div class="payline"><span>${fdate(p.date)}</span><span class="muted">${esc(p.method||'')}</span><b class="num">${fmt(p.amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="payments" data-i="${i}" aria-label="Remove payment">${I.x}</button></div>`).join('')}</div>`:''}
           <div style="width:100%;display:flex;flex-direction:column;gap:8px">${field('Commas payment link for this invoice','payLink',d.payLink,'url')}
@@ -3013,7 +3017,7 @@ function vDocs(kind){
       <label class="search"><span hidden>Search</span>${I.search}<input class="in plain" id="docq" placeholder="Search client or number" value="${esc(S.docQ||'')}"></label></div>
     ${rows.length? `<div class="tbl-wrap"><table>
     <thead><tr><th>Status</th><th>${isInv?'Due':'Date'}</th><th>Name</th><th>Client</th><th class="n">${isInv?'Balance':'Amount'}</th><th class="n">Total</th><th></th></tr></thead>
-    <tbody>${rows.map(d=>{const t=docTotals(d); const s=docStatus(d,kind); return `<tr class="click" data-open="${kind}:${d.id}"><td><span class="pill ${s[1]}">${s[0]}</span>${isInv?'':replyPill(d)}</td><td>${fdate(isInv?(d.due||d.date):d.date)}</td><td class="docname-cell"><b>${esc(docName(d,kind))}</b><div class="muted" style="font-size:12px">${esc(d.number)}</div></td><td>${esc(clientName(d.clientId)||'—')}</td><td class="n"><b>${fmt(isInv?t.balance:t.total,1)}</b></td><td class="n muted">${fmt(t.total,1)}</td><td class="n"><span class="row-acts">${action(d)}<button class="icon-btn" data-act="row-del-ask" data-id="${d.id}" title="Delete" aria-label="Delete ${esc(d.number)}">${I.trash}</button></span></td></tr>`}).join('')}</tbody></table></div>`
+    <tbody>${rows.map(d=>{const t=docTotals(d); const s=docStatus(d,kind); return `<tr class="click" data-open="${kind}:${d.id}"><td><span class="pill ${s[1]}">${s[0]}</span>${viewPill(d)}${isInv?'':replyPill(d)}</td><td>${fdate(isInv?(d.due||d.date):d.date)}</td><td class="docname-cell"><b>${esc(docName(d,kind))}</b><div class="muted" style="font-size:12px">${esc(d.number)}</div></td><td>${esc(clientName(d.clientId)||'—')}</td><td class="n"><b>${fmt(isInv?t.balance:t.total,1)}</b></td><td class="n muted">${fmt(t.total,1)}</td><td class="n"><span class="row-acts">${action(d)}<button class="icon-btn" data-act="row-del-ask" data-id="${d.id}" title="Delete" aria-label="Delete ${esc(d.number)}">${I.trash}</button></span></td></tr>`}).join('')}</tbody></table></div>`
     : `<div class="empty"><h3>${all.length?'Nothing in this tab':(isInv?'No invoices yet':'No estimates yet')}</h3><span>${isInv?'Create an invoice or convert an accepted estimate. When you send it, your client receives the PDF and the payment button.':'Create an estimate, email it, and convert it to an invoice once it is accepted.'}</span>${all.length?'':`<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Create invoice':'Create estimate'}</button>`}</div>`}
   </section>`}`;
 }
@@ -3223,6 +3227,24 @@ function shareSnapshot(d){
     plan: pr.rows.map((r,i)=>({label:r.label||`Payment ${i+1}`, when:r.whenText||'', pct:r.kind==='%'?N(r.value):null, amount:money(r.amount)})),
     notes:d.notes||'', contract: contractText(d), notices: legalNotices(d), updatedAt:new Date().toISOString() };
 }
+/* "Viewed" tracking: the email carries a tiny image and the Pay Now button goes through Kuadra, so the owner sees when the client opened it */
+async function ensureTrack(d, coll){
+  if (!window.claude?.standalone || !S.db) return null;
+  try {
+    if (coll==='estimates'){ if (!d.shareToken) return null; return {open:`${location.origin}/o/${d.shareToken}`, pay:''}; }
+    if (!d.trackToken){ const a = new Uint8Array(20); crypto.getRandomValues(a); d.trackToken = [...a].map(x=>x.toString(16).padStart(2,'0')).join(''); persist('invoices', d, true); }
+    const main = docTotals(d).balance>0.004 ? (payLinks(d).find(l=>l.url)?.url || '') : '';
+    await S.db.collection('shares').doc(d.trackToken).set({kind:'track', coll:'invoices', docId:d.id, number:d.number||'', payUrl:main});
+    return {open:`${location.origin}/o/${d.trackToken}`, pay: main ? `${location.origin}/p/${d.trackToken}` : '', payUrl: main};
+  } catch(_){ return null; }
+}
+const ftime = iso => { const x = new Date(iso); return isNaN(x) ? '' : MES3[x.getMonth()]+' '+x.getDate()+', '+x.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
+function viewLine(d){
+  const v = S.views[d.id]; if (!d.sentAt || !window.claude?.standalone) return '';
+  if (!v || (!v.count && !v.payClicks)) return 'Not opened yet';
+  return [v.count ? `Viewed ${ftime(v.last)}${v.count>1?` · ${v.count} times`:''}` : '', v.payClicks ? `Opened the payment page ${ftime(v.lastPayClick)}` : ''].filter(Boolean).join(' · ');
+}
+function viewPill(d){ const v = S.views[d.id]; return v && (v.count || v.payClicks) ? ` <span class="pill ok" title="${esc(viewLine(d))}">Viewed</span>` : ''; }
 async function ensureShare(d){
   if (!window.claude?.standalone || !S.db) return '';
   if (!d.shareToken){ const a = new Uint8Array(20); crypto.getRandomValues(a); d.shareToken = [...a].map(x=>x.toString(16).padStart(2,'0')).join(''); persist('estimates', d, true); }
@@ -3606,6 +3628,9 @@ async function sendMail(btn){
     let shareUrl = '';
     if (!isInvMail){ try { shareUrl = await ensureShare(doc); } catch(e){ shareUrl = ''; } }
     input.htmlBody = mailLayout(doc, S.composeDoc.coll, text, shareUrl);
+    if (mode==='send'){ const trk = await ensureTrack(doc, S.composeDoc.coll); if (trk){
+      if (trk.pay) input.htmlBody = input.htmlBody.replace('href="'+esc(trk.payUrl)+'"', 'href="'+trk.pay+'"');
+      input.htmlBody += `<img src="${trk.open}" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px">`; } }
     if (isInvMail){ const l = payLinks(doc).find(x=>x.url); if (l && docTotals(doc).balance>0.004) input.body = text + `\n\nPay online (${money(docTotals(doc).balance)}): ${l.url}`; }
     else input.body = text + (shareUrl ? `\n\nReview and ${contractText(doc)?'sign':'accept'} this estimate online: ${shareUrl}` : `\n\nTo accept this estimate, ask a question or request changes, just reply to this email.`);
     input.attachments = [{content: LOGO_PDF, filename:'jc-home-services-logo.jpg', mimeType:'image/jpeg', inline:true}, {content: pdf.base64, filename: pdf.name, mimeType:'application/pdf'}];

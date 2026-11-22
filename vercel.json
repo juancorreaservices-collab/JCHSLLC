@@ -1,21 +1,72 @@
 {
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/_blob/:id", "destination": "/api/blob?id=:id" },
-    { "source": "/e/:token", "destination": "/e.html" }
+    {
+      "source": "/_blob/:id",
+      "destination": "/api/blob?id=:id"
+    },
+    {
+      "source": "/e/:token",
+      "destination": "/e.html"
+    },
+    {
+      "source": "/o/:token",
+      "destination": "/api/track?k=open&t=:token"
+    },
+    {
+      "source": "/p/:token",
+      "destination": "/api/track?k=pay&t=:token"
+    }
   ],
   "functions": {
-    "api/ai.js": { "maxDuration": 300 },
-    "api/gmail.js": { "maxDuration": 60 },
-    "api/sign.js": { "maxDuration": 30 },
-    "api/setup.js": { "maxDuration": 60, "includeFiles": "supabase/schema.sql" }
+    "api/ai.js": {
+      "maxDuration": 300
+    },
+    "api/gmail.js": {
+      "maxDuration": 60
+    },
+    "api/sign.js": {
+      "maxDuration": 30
+    },
+    "api/setup.js": {
+      "maxDuration": 60,
+      "includeFiles": "supabase/schema.sql"
+    },
+    "api/track.js": {
+      "maxDuration": 15
+    }
   },
   "headers": [
-    { "source": "/(.*)", "headers": [
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-    ] },
-    { "source": "/(index.html)?", "headers": [ { "key": "Cache-Control", "value": "no-cache" } ] },
-    { "source": "/runtime.js", "headers": [ { "key": "Cache-Control", "value": "no-cache" } ] }
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    },
+    {
+      "source": "/(index.html)?",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/runtime.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
   ]
 }

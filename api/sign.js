@@ -1,5 +1,6 @@
 import { admin, origin } from '../lib/auth.js';
 import { gmailAccessToken } from '../lib/google.js';
+import { recordView } from '../lib/views.js';
 
 // Public endpoint behind the page a client opens to review and sign an estimate.
 // It only knows the snapshot stored under the random token in the link.
@@ -38,7 +39,12 @@ export default async function handler(req, res) {
   const share = await load(sb, token);
   if (!share) return res.status(404).json({ code: 'not_found' });
 
-  if (req.method === 'GET') return res.status(200).json(share);
+  if (share.kind === 'track') return res.status(404).json({ code: 'not_found' });
+  if (req.method === 'GET') {
+    // opening the estimate page counts as "viewed", unless it is the owner's own browser
+    if (share.estimateId && !/(?:^|;\s*)kuadra_token=/.test(req.headers.cookie || '')) await recordView(sb, 'estimates', share.estimateId, 'open');
+    return res.status(200).json(share);
+  }
   if (req.method !== 'POST') return res.status(405).json({ code: 'invalid_request' });
 
   if (share.signed) return res.status(409).json({ code: 'already_signed', signed: share.signed });
