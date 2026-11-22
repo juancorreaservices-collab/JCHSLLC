@@ -1214,31 +1214,77 @@ new MutationObserver(ms => ms.forEach(m => { if (m.type==='characterData') trNod
 const statusPill = (s, map) => `<span class="pill ${map[s]??''}">${esc(s||'—')}</span>`;
 
 /* ---------- Persistence ---------- */
+/* Every change is first written to a small queue on this device, then sent to the cloud.
+   If the connection drops or the page closes mid-save, the queue survives and is sent again later. */
 const saveTimers = {};
+const OB_KEY = 'kuadra.outbox.v1';
+const OB = { q:{}, recent:{}, busy:new Set(), err:false, n:0, warned:0 };
+try { OB.q = JSON.parse(localStorage.getItem(OB_KEY) || '{}') || {}; } catch(_){ OB.q = {}; }
+function obStore(){ try { localStorage.setItem(OB_KEY, JSON.stringify(OB.q)); } catch(_){} obStatus(); }
+function obStatus(){
+  if (!S.db) return; const n = Object.keys(OB.q).length;
+  if (!n){ if (S.live) setDb('on','Saved to the cloud'); return; }
+  if (OB.err || navigator.onLine===false) setDb('off', `${n} change${n===1?'':'s'} waiting for connection`); else setDb('on','Saving…');
+}
+function obQueue(key, op){ op.at = Date.now()+'.'+(++OB.n); OB.q[key] = op; obStore(); }
+async function obSend(key){
+  const op = OB.q[key]; if (!op || !S.db || OB.busy.has(key)) return; OB.busy.add(key); const at = op.at;
+  try {
+    if (op.t==='del') await S.db.collection(op.coll).doc(op.id).delete();
+    else if (op.t==='doc') await S.db.doc(op.path).set(op.body);
+    else await S.db.collection(op.coll).doc(op.id).set(op.body);
+    if (OB.q[key] && OB.q[key].at===at){ delete OB.q[key]; OB.recent[key] = {op, until: Date.now()+15000}; }
+    OB.err = false;
+  } catch(e){ OB.err = true; if (Date.now()-OB.warned > 60000){ OB.warned = Date.now(); handleDbErr(e); } }
+  OB.busy.delete(key); obStore();
+  if (OB.q[key] && OB.q[key].at!==at) obSend(key);
+}
+function obFlush(){ Object.keys(saveTimers).forEach(k=>{ clearTimeout(saveTimers[k]); delete saveTimers[k]; }); Object.keys(OB.q).forEach(obSend); }
+// what is still waiting to be sent wins over what the cloud sends back, so nothing "un-types" itself
+function obOverlay(c, next){ const now = Date.now(); for (const k of Object.keys(OB.recent)) if (OB.recent[k].until < now || OB.q[k]) delete OB.recent[k];
+  for (const op of [...Object.values(OB.recent).map(r=>r.op), ...Object.values(OB.q)]){ if (op.coll!==c) continue; if (op.t==='del') delete next[op.id]; else if (op.t==='set') next[op.id] = {id:op.id, ...structuredClone(op.body)}; } }
+window.addEventListener('online', obFlush);
+window.addEventListener('offline', obStatus);
+window.addEventListener('pagehide', () => { draftStore(); obFlush(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden'){ draftStore(); obFlush(); } else if (Object.keys(OB.q).length) obFlush(); });
+setInterval(() => { if (Object.keys(OB.q).length) obFlush(); }, 20000);
+
+/* The estimate / invoice being edited is kept on this device until it is saved, so closing the page does not lose it */
+const DRAFT_KEY = 'kuadra.draft.v1'; let draftTimer = null;
+function draftStore(){
+  clearTimeout(draftTimer);
+  try { const D = S.doc; if (D && D.mode==='edit' && D.dirty && D.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify({coll:D.coll, id:D.id, isNew:!!D.isNew, draft:D.draft, at:new Date().toISOString()})); else localStorage.removeItem(DRAFT_KEY); } catch(_){}
+}
+function draftTouch(){ clearTimeout(draftTimer); draftTimer = setTimeout(draftStore, 600); }
+function draftOffer(){
+  if (draftOffer.done) return; draftOffer.done = true;
+  let d = null; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch(_){}
+  if (!d || !d.draft || (S.doc && S.doc.mode==='edit')) return;
+  if (!d.isNew && !S[d.coll]?.[d.id]){ try { localStorage.removeItem(DRAFT_KEY); } catch(_){} return; }
+  S.draftFound = d; const isInv = d.coll==='invoices';
+  openModal('Unsaved work found', `<p>You were editing ${isInv?'an invoice':'an estimate'}${d.draft.number?` (<b>${esc(d.draft.number)}</b>)`:''}${clientName(d.draft.clientId)?` for <b>${esc(clientName(d.draft.clientId))}</b>`:''} on this device and it was not saved. Last change: ${fdate(d.at)}.</p>`, `<button class="btn" data-act="draft-drop">Discard it</button><button class="btn primary" data-act="draft-restore">Continue editing</button>`);
+}
 function persist(coll, obj, immediate){
-  if (S.doc && S.doc.mode==='edit' && obj === S.doc.draft){ S.doc.dirty = true; return; }
+  if (S.doc && S.doc.mode==='edit' && obj === S.doc.draft){ S.doc.dirty = true; draftTouch(); return; }
   if (coll==='items' && obj._chunk){ S.items[obj.id] = obj; persistChunk(obj._chunk); return; }
   S[coll][obj.id] = obj;
-  const run = async () => {
-    if (!S.db) return;
-    const { id, ...body } = obj;
-    body.updatedAt = new Date().toISOString();
-    try { await S.db.collection(coll).doc(id).set(JSON.parse(JSON.stringify(body))); }
-    catch(e){ handleDbErr(e); }
-  };
+  const { id, ...body } = obj;
+  body.updatedAt = new Date().toISOString();
   const key = coll+'/'+obj.id;
+  obQueue(key, {t:'set', coll, id, body: JSON.parse(JSON.stringify(body))});
   clearTimeout(saveTimers[key]);
-  if (immediate) return run();
-  saveTimers[key] = setTimeout(run, 500);
+  if (immediate) return obSend(key);
+  saveTimers[key] = setTimeout(() => obSend(key), 500);
 }
 async function remove(coll, id){
   if (coll==='items' && S.items[id]?._chunk){ const ch = S.items[id]._chunk; delete S.items[id]; persistChunk(ch); return; }
   delete S[coll][id];
-  if (S.db) { try { await S.db.collection(coll).doc(id).delete(); } catch(e){ handleDbErr(e); } }
+  const key = coll+'/'+id; clearTimeout(saveTimers[key]); obQueue(key, {t:'del', coll, id}); return obSend(key);
 }
 async function saveSettings(){
+  obQueue('settings/main', {t:'doc', path:'settings/main', body: JSON.parse(JSON.stringify(S.settings))});
   clearTimeout(saveTimers.settings);
-  saveTimers.settings = setTimeout(async()=>{ if(!S.db) return; try{ await S.db.doc('settings/main').set(JSON.parse(JSON.stringify(S.settings))); }catch(e){ handleDbErr(e); } }, 500);
+  saveTimers.settings = setTimeout(() => obSend('settings/main'), 500);
 }
 function handleDbErr(e){
   const m = {quota_exceeded:'The database is full. Delete old records to keep saving.', invalid_argument:'You do not have permission to save changes in this app.', revoked:'Access to the data was lost. Reload the page.', resource_exhausted:'Too many changes in a row. Wait a few seconds.'}[e?.code];
@@ -1262,7 +1308,7 @@ async function boot(){
   const loadTimer = setTimeout(()=>{ if(!S.live){ setDb('off','No connection'); $('#banner').innerHTML='<div class="banner">Your data has not loaded yet. Check your connection; the app keeps trying.</div>'; } }, 10000);
   claude.use('db').then(db => {
     if (!db){ clearTimeout(loadTimer); offline(); return; }
-    S.db = db;
+    S.db = db; obFlush();
     for (const c of COLL){
       db.collection(c).onSnapshot(snap => {
         const next = {};
@@ -1270,8 +1316,9 @@ async function boot(){
         if (c==='items') Object.values(S.items).forEach(x => { if (x._chunk) next[x.id] = x; });
         // keep unsaved local edits for the doc open in the drawer
         if (S.drawer && S.drawer.coll===c && next[S.drawer.id]) next[S.drawer.id] = S[c][S.drawer.id] || next[S.drawer.id];
+        obOverlay(c, next);
         S[c] = next; S.loaded[c] = !snap.metadata.fromCache || S.loaded[c]; if (c==='estimates') setTimeout(watchReplies, 0); if (c==='estimates' || c==='invoices' || c==='clients') checkApprovals();
-        if (!snap.metadata.fromCache){ S.live = true; clearTimeout(loadTimer); setDb('on','Saved to the cloud'); $('#banner').innerHTML=''; }
+        if (!snap.metadata.fromCache){ S.live = true; clearTimeout(loadTimer); obStatus(); $('#banner').innerHTML=''; if (COLL.every(k=>S.loaded[k])) setTimeout(draftOffer, 600); }
         renderView();
       }, e => { setDb('off','Data error'); clearTimeout(loadTimer); $('#banner').innerHTML = `<div class="banner">Could not load the data (${esc(e.code)}). Reload the page.</div>`; });
     }
@@ -1280,7 +1327,7 @@ async function boot(){
       snap.docs.forEach(d => { (d.data().items||[]).forEach(it => { S.items[it.id] = {...structuredClone(it), _chunk: d.id}; }); });
       if (S.view==='productos') renderView();
     }, ()=>{});
-    db.doc('settings/main').onSnapshot(s => { if (s.exists) S.settings = {...DEFAULT_SETTINGS, ...structuredClone(s.data())}; S.loaded.settings=true; if(S.view==='ajustes' && document.activeElement?.closest?.('#view')) return; renderView(); }, ()=>{});
+    db.doc('settings/main').onSnapshot(s => { if (s.exists) S.settings = {...DEFAULT_SETTINGS, ...structuredClone(s.data()), ...(OB.q['settings/main'] ? structuredClone(OB.q['settings/main'].body) : {})}; S.loaded.settings=true; if(S.view==='ajustes' && document.activeElement?.closest?.('#view')) return; renderView(); }, ()=>{});
   });
   claude.use('mcp').then(m => { S.mcp = m; if (S.view==='email') renderView(); watchReplies(); });
   claude.use('downloads').then(d => { S.dl = d; });
@@ -1322,7 +1369,7 @@ function go(v){
     openModal('Unsaved changes', `<p>You have unsaved changes in this ${docLabel(S.doc.coll)}. What would you like to do?</p>`, `<button class="btn" data-act="modal-close">Keep editing</button><button class="btn danger" data-act="go-discard">Leave without saving</button><button class="btn primary" data-act="go-save">Save</button>`);
     return;
   }
-  S.forceGo = false; S.doc = null; if (!$('#modal').hidden) closeModal();
+  S.forceGo = false; S.doc = null; draftStore(); if (!$('#modal').hidden) closeModal();
   S.view = v; try{ history.replaceState(null,'','#'+v); }catch(e){} render(); window.scrollTo(0,0);
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
@@ -2004,6 +2051,8 @@ async function act(name, el){
       AI.dict.start().catch(e => { AI.micEl = null; toast(e?.code==='not_granted' ? 'Microphone permission denied.' : e?.code==='stopped' ? '' : 'Could not use the microphone.'); });
       return;
     }
+    case 'draft-restore': { const d = S.draftFound; S.draftFound = null; closeModal(); if (d){ openDoc(d.coll, d.draft.id || d.id, 'edit', d.draft, d.isNew); S.doc.dirty = true; } return; }
+    case 'draft-drop': S.draftFound = null; try { localStorage.removeItem(DRAFT_KEY); } catch(_){} closeModal(); return;
     case 'item-mic': return itemMicStart(el.dataset.i);
     case 'ai-mic': {
       if (!AI.dict) return;
@@ -2015,7 +2064,7 @@ async function act(name, el){
     case 'doc-edit': S.doc = {coll:S.doc.coll, id:S.doc.id, mode:'edit', draft:structuredClone(S[S.doc.coll][S.doc.id]), isNew:false, dirty:false, bizOpen:true}; renderDocNow(); window.scrollTo(0,0); return;
     case 'doc-save': return saveDoc();
     case 'doc-save-send': { const sv = await saveDoc(); if (sv) composeDoc(S[S.doc.coll][sv.id], S.doc.coll); return; }
-    case 'doc-cancel': if (S.doc.isNew){ S.forceGo = true; return go(S.doc.coll==='invoices'?'facturas':'estimados'); } S.doc = {coll:S.doc.coll, id:S.doc.id, mode:'view'}; renderDocNow(); return;
+    case 'doc-cancel': if (S.doc.isNew){ S.forceGo = true; return go(S.doc.coll==='invoices'?'facturas':'estimados'); } S.doc = {coll:S.doc.coll, id:S.doc.id, mode:'view'}; draftStore(); renderDocNow(); return;
     case 'go-discard': closeModal(); S.forceGo = true; return go(S.pendingGo);
     case 'go-save': { closeModal(); const sv = await saveDoc(); if (sv){ S.forceGo = true; go(S.pendingGo); } return; }
     case 'open-inv': return openDoc('invoices', el.dataset.id, 'view');
@@ -2227,9 +2276,8 @@ const chunkTimers = {};
 function persistChunk(ch){
   clearTimeout(chunkTimers[ch]);
   chunkTimers[ch] = setTimeout(async()=>{
-    if (!S.db) return;
     const items = Object.values(S.items).filter(x=>x._chunk===ch).map(({_chunk, ...r})=>r);
-    try { await S.db.doc('catalog/'+ch).set(JSON.parse(JSON.stringify({items}))); } catch(e){ handleDbErr(e); }
+    obQueue('catalog/'+ch, {t:'doc', path:'catalog/'+ch, body: JSON.parse(JSON.stringify({items}))}); obSend('catalog/'+ch);
   }, 800);
 }
 function learnItems(d){
@@ -2901,7 +2949,7 @@ async function saveDoc(){
   const saved = structuredClone(d);
   rememberProp(saved.clientId, saved.property);
   learnItems(saved);
-  S.doc = {coll:D.coll, id:saved.id, mode:'view'};
+  S.doc = {coll:D.coll, id:saved.id, mode:'view'}; draftStore();
   persist(D.coll, saved, true);
   if (D.coll==='invoices') syncInvoicePayments(saved);
   toast(`${D.coll==='invoices'?'Invoice':'Estimate'} ${saved.number} saved`);

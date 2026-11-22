@@ -91,7 +91,20 @@
 
   let entered = false;
   async function enter() {
-    const { data } = await sb.auth.getSession(); session = data.session;
+    let { data } = await sb.auth.getSession(); session = data.session;
+    // A saved sign-in exists on this device but could not be refreshed (weak signal when the app opens):
+    // keep trying instead of asking for the password again.
+    const hasSaved = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)); } catch (_) { return false; } };
+    for (let i = 0; !session && hasSaved() && i < 6; i++) {
+      gate('<div class="msg">Connecting…</div>');
+      await new Promise(r => setTimeout(r, navigator.onLine === false ? 3000 : 1200));
+      try { const r = await sb.auth.refreshSession(); session = r.data?.session || (await sb.auth.getSession()).data.session; } catch (_) {}
+    }
+    if (!session && hasSaved() && navigator.onLine === false) {
+      gate('<div class="msg">No internet connection. Kuadra will open as soon as you are back online.</div>');
+      window.addEventListener('online', () => location.reload(), { once: true });
+      return;
+    }
     if (!session) return loginScreen(cfg.hasOwner === false ? 'up' : 'in', cfg.hasOwner === false ? 'Welcome. Create your owner account: enter your email and a password of 8 or more characters.' : '');
     setCookie(session.access_token);
     const { data: ok, error } = await sb.rpc('claim_owner');
