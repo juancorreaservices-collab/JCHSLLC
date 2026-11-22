@@ -382,6 +382,20 @@ details.menu > summary::-webkit-details-marker{display:none}
 .in.sm{padding:5px 8px;font-size:13px;width:auto;min-width:64px}
 .dp-cols{padding:0 22px}
 .editcols{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);font-weight:700;padding:8px 12px;border-radius:8px 8px 0 0}
+.pnbox{border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:16px;overflow:hidden}
+.pn-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px 6px}
+.pn-h > div{display:flex;align-items:center;gap:10px}
+.pn-h small{color:var(--ink-3);font-size:12.5px}
+.pn-facts{padding:0 16px 12px;font-size:13px;color:var(--ink-2)}
+.pn-list{border-top:1px solid var(--line)}
+.pn-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--line)}
+.pn-row:last-child{border-bottom:0}
+.pn-row label{display:flex;gap:10px;align-items:flex-start;min-width:0;cursor:pointer;flex:1}
+.pn-row input{margin-top:4px;flex-shrink:0;width:16px;height:16px}
+.pn-row label span{display:flex;flex-direction:column;font-size:14px;min-width:0;overflow-wrap:anywhere}
+.pn-row label small{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.pn-row.done label span{color:var(--ink-3);text-decoration:line-through}
+.pn-row .btn{flex-shrink:0}
 .viewline{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-3);margin:4px 0 0}
 .viewline svg{width:15px;height:15px}
 .viewline.seen{color:var(--ok);font-weight:600}
@@ -2072,6 +2086,9 @@ async function act(name, el){
     }
     case 'draft-restore': { const d = S.draftFound; S.draftFound = null; closeModal(); if (d){ openDoc(d.coll, d.draft.id || d.id, 'edit', d.draft, d.isNew); S.doc.dirty = true; } return; }
     case 'draft-drop': S.draftFound = null; try { localStorage.removeItem(DRAFT_KEY); } catch(_){} closeModal(); return;
+    case 'pn-check': { (o.projChecked ||= {})[el.dataset.key] = el.checked ? '1' : ''; if (!el.checked) delete o.projChecked[el.dataset.key]; persist(coll, o); renderDocNow(); return; }
+    case 'pn-add': { const it = projNoteItems(S.projects[o.projectId]).find(x=>x.k===el.dataset.key); if (!it) return; const blank = (o.items||[]).findIndex(r=>!(r.desc||'').trim() && !N(r.rate)); const row = {area:'', desc:it.t, qty:1, rate:''}; if (blank>=0) o.items[blank] = row; else (o.items ||= []).push(row); (o.projChecked ||= {})[it.k] = '1'; persist(coll, o); renderDocNow(); toast('Added to the invoice. Set its price.'); return; }
+    case 'pn-save-anyway': if (S.doc){ S.doc.notesOk = true; closeModal(); return saveDoc(); } return;
     case 'item-mic': return itemMicStart(el.dataset.i);
     case 'ai-mic': {
       if (!AI.dict) return;
@@ -2382,6 +2399,25 @@ async function aiInit(){
       if (!AI.listening){ AI.micEl = null; document.querySelectorAll('.dictp').forEach(p=>p.textContent=''); } });
     if (S.view==='doc') renderDocNow();
   });
+}
+/* When an invoice belongs to a project, the project's notes and tasks ride along as a checklist so nothing is forgotten */
+function projNoteItems(p){
+  if (!p) return [];
+  const notes = String(p.notes||'').split(/\n+/).map(x=>x.trim()).filter(x=>x && !/^https?:\/\/\S+$/.test(x)).map(t=>({k:'n:'+t, t, kind:'Note'}));
+  const tasks = (p.tasks||[]).filter(t=>(t.text||'').trim()).map(t=>({k:'t:'+t.text.trim(), t:t.text.trim()+(t.notes?' — '+String(t.notes).trim():''), kind:'Task', status:t.status||'Pendiente'}));
+  return [...notes, ...tasks];
+}
+const projNotesLeft = d => { const p = S.projects[d.projectId]; return projNoteItems(p).filter(x=>!(d.projChecked||{})[x.k]).length; };
+function projNotesBox(d, coll){
+  if (coll!=='invoices') return ''; const p = S.projects[d.projectId]; if (!p) return '';
+  const items = projNoteItems(p), ck = d.projChecked||{}, c = pc(p); const left = items.filter(x=>!ck[x.k]).length;
+  const facts = [c.price?`Price ${fmt(c.price,1)}`:'', `Collected ${fmt(c.cobrado,1)}`, c.price?`Balance due ${fmt(c.falta,1)}`:'',
+    (p.subs||[]).length?`Subcontractors: ${(p.subs||[]).map(x=>(x.name||'—')+(x.work?' ('+x.work+')':'')).join(', ')}`:'', c.compras?`Purchases ${fmt(c.compras,1)}`:'', c.supHours?`Supervisor ${hoursFmt(c.supHours)}`:''].filter(Boolean);
+  return `<section class="pnbox">
+    <div class="pn-h"><div><span class="ai-badge">Project notes</span><b>${esc(p.name)}</b></div><small>${items.length ? (left ? `${left} of ${items.length} still to review` : 'All reviewed') : 'This project has no notes or tasks'} · only you see this</small></div>
+    <div class="pn-facts">${facts.map(esc).join(' · ')}</div>
+    ${items.length ? `<div class="pn-list">${items.map(x=>`<div class="pn-row ${ck[x.k]?'done':''}"><label><input type="checkbox" data-act="pn-check" data-key="${esc(x.k)}" ${ck[x.k]?'checked':''}><span><small>${x.kind}${x.status?' · '+esc(tr(x.status)):''}</small>${esc(x.t)}</span></label><button type="button" class="btn sm" data-act="pn-add" data-key="${esc(x.k)}">${I.plus} Add as line</button></div>`).join('')}</div>` : ''}
+  </section>`;
 }
 function aiBox(d, coll){
   if (AI.sample === null) return '';
@@ -2716,6 +2752,7 @@ function docEdit(d, coll, isInv){
 
     <label class="docname-row"><span>Internal name</span><input class="in plain" data-k="name" autocomplete="off" placeholder="${esc(autoDocName(d) || 'Generated automatically from the job and address')}" value="${esc(d.name||'')}"><button type="button" class="linkbtn" data-go="ajustes">Business info</button></label>
 
+    ${projNotesBox(d, coll)}
     ${aiBox(d, coll)}
     <section class="dp-card doc-paper">
       <header class="lh">
@@ -2964,6 +3001,9 @@ async function saveDoc(){
   const D = S.doc; if (!D || D.mode!=='edit') return null;
   const d = D.draft;
   if (!d.clientId){ toast('Add a client before saving'); return null; }
+  if (D.coll==='invoices' && !D.notesOk && projNotesLeft(d) > 0){ const n = projNotesLeft(d);
+    openModal('Project notes not reviewed', `<p>This project has <b>${n}</b> note${n===1?'':'s'} or task${n===1?'':'s'} you have not checked off. Make sure nothing is missing from the invoice.</p>`, `<button class="btn" data-act="pn-save-anyway">Save anyway</button><button class="btn primary" data-act="modal-close">Review the notes</button>`);
+    return null; }
   if (D.isNew) await nextNumber(D.coll==='invoices'?'inv':'est');
   const saved = structuredClone(d);
   rememberProp(saved.clientId, saved.property);
