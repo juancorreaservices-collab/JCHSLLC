@@ -644,7 +644,8 @@ button.lrow:hover{background:var(--surface-2)}
 .sub-pay b{text-align:right;color:var(--ink)}
 .sub-pay .icon-btn{width:24px;height:24px}
 .lg-two .ptr.r-buy{grid-template-columns:122px minmax(90px,1.2fr) minmax(80px,1fr) 84px minmax(60px,.7fr) 24px}
-.ptr.r-hrs,.lg-two .ptr.r-hrs{grid-template-columns:122px 90px minmax(100px,1fr) 24px}
+.ptr.r-hrs,.lg-two .ptr.r-hrs{grid-template-columns:122px 76px 96px minmax(90px,1fr) 24px}
+.ptr.r-hrs .calc,.ptr.r-hrs .r{text-align:right;font-variant-numeric:tabular-nums}
 .lg-two .ptr.r-pay{grid-template-columns:122px 100px minmax(100px,1fr) 24px}
 .lg-two .ptr{padding-left:12px;padding-right:10px}
 .lg-two .ptr .in{padding-left:8px;padding-right:8px}
@@ -1080,12 +1081,13 @@ function pc(p){
   const compras = (p.purchases||[]).reduce((a,x)=>a+N(x.amount),0) + lBuy;
   const subCost = (p.subs||[]).reduce((a,x)=>a+N(x.cost),0) + lSub;
   const subPaid = (p.subs||[]).reduce((a,x)=>a+N(x.paid),0) + lSub;
-  const gastos = compras + subCost;
+  const supHours = (p.hours||[]).reduce((a,x)=>a+N(x.hours),0), supCost = Math.round(supHours*N(p.supRate)*100)/100;
+  const gastos = compras + subCost + supCost;
   const ganancia = price === 0 ? N(p.profitNote) : price - gastos;
   const tasks = (p.tasks||[]).filter(t=>t.text);
   const progress = p.status==='Completado' ? 1 : (tasks.length ? tasks.filter(t=>t.status==='Completado').length/tasks.length : 0);
   return { price, down, extra, cobrado, falta: price - cobrado, pctCobrado: price>0 ? cobrado/price : 0,
-    compras, subCost, subPaid, subFalta: subCost-subPaid, gastos, ganancia, margen: price>0 ? ganancia/price : 0,
+    compras, subCost, subPaid, subFalta: subCost-subPaid, supHours, supCost, gastos, ganancia, margen: price>0 ? ganancia/price : 0,
     efectivo: cobrado - compras - subPaid, progress };
 }
 // Which columns the client sees (Wave's eye icons). Estimates default to hidden (only the TOTAL); older invoices follow showPrices.
@@ -1628,13 +1630,14 @@ function projCalcs(p){
   const c = pc(p);
   return { ...c,
     progressTxt: pct(c.progress), priceTxt: c.price?fmt(c.price,1):'—', hoursTxt: hoursFmt((p.hours||[]).reduce((a,x)=>a+N(x.hours),0)), extraTxt: fmt(c.extra,1), cobradoTxt: fmt(c.cobrado,1), faltaTxt: c.price?fmt(c.falta,1):'—', pctTxt: pct(c.pctCobrado),
-    comprasTxt: fmt(c.compras,1), subCostTxt: fmt(c.subCost,1), subPaidTxt: fmt(c.subPaid,1), subFaltaTxt: fmt(c.subFalta,1), gastosTxt: fmt(c.gastos,1),
+    supCostTxt: fmt(c.supCost,1), comprasTxt: fmt(c.compras,1), subCostTxt: fmt(c.subCost,1), subPaidTxt: fmt(c.subPaid,1), subFaltaTxt: fmt(c.subFalta,1), gastosTxt: fmt(c.gastos,1),
     gananciaTxt: fmt(c.ganancia,1), margenTxt: pct(c.margen), efectivoTxt: fmt(c.efectivo,1) };
 }
 function refreshProjCalcs(p){
   const c = projCalcs(p);
   document.querySelectorAll('#drawer [data-calc]').forEach(el => {
     const k = el.dataset.calc;
+    if (k.startsWith('supamt-')){ const r = (p.hours||[])[+k.slice(7)]; if (r) el.textContent = fmt(N(r.hours)*N(p.supRate),1); return; }
     if (k.startsWith('subfalta-')){ const r = (p.subs||[])[+k.slice(9)]; if (r){ const left = N(r.cost)-N(r.paid); const done = N(r.cost)>0 && left<=0.004; el.innerHTML = done ? '<span class="pill ok">Paid in full</span>' : fmt(left,1); el.classList.toggle('neg', !done && left>0.004); } return; }
     if (c[k+'Txt'] != null) el.textContent = c[k+'Txt'];
     if (k==='ganancia') el.classList.toggle('neg', c.ganancia<0);
@@ -1690,10 +1693,11 @@ function drProject(p){
           </section>
           <section class="card pj-card"><div class="pj-card-h"><h3>Supervisor hours</h3><button class="btn sm" data-act="row-add" data-list="hours">${I.plus} Add hours</button></div>
             <div class="lg-row"><span>Supervisor</span><div>${inp('supervisor','text','Name')}</div></div>
+            <div class="lg-row"><span>Rate per hour<small>Hours × rate is added to the project expenses</small></span><div>${inp('supRate','money','0')}</div></div>
             ${(p.hours||[]).length ? `<div class="ptbl">
-              <div class="ptr hd r-hrs"><span>Date</span><span>Hours</span><span>Note</span><span></span></div>
-              ${(p.hours||[]).map((r,i)=>`<div class="ptr r-hrs">${li('hours',i,'date',r.date,'date')}${li('hours',i,'hours',r.hours,'money','0')}${li('hours',i,'note',r.note,'text','What was done')}${del('hours',i)}</div>`).join('')}
-              <div class="ptr tot r-hrs"><span>Total</span><b data-calc="hours">${c.hoursTxt}</b><span></span><span></span></div>
+              <div class="ptr hd r-hrs"><span>Date</span><span>Hours</span><span class="r">Amount</span><span>Note</span><span></span></div>
+              ${(p.hours||[]).map((r,i)=>`<div class="ptr r-hrs">${li('hours',i,'date',r.date,'date')}${li('hours',i,'hours',r.hours,'money','0')}<span class="calc" data-calc="supamt-${i}">${fmt(N(r.hours)*N(p.supRate),1)}</span>${li('hours',i,'note',r.note,'text','What was done')}${del('hours',i)}</div>`).join('')}
+              <div class="ptr tot r-hrs"><span>Total</span><b data-calc="hours">${c.hoursTxt}</b><b data-calc="supCost">${c.supCostTxt}</b><span></span><span></span></div>
             </div>` : `<div class="lempty">No hours logged yet. Add the date and the hours the supervisor worked on this project.</div>`}
           </section>
         </div>
@@ -1701,7 +1705,8 @@ function drProject(p){
           <section class="card pj-card lg"><h3 class="lg-h">Expenses</h3>
             ${lg('Purchases / materials', cv('compras'), 'Sum of the "Purchases" table')}
             ${lg('+ Subcontractors – total cost', cv('subCost'), 'Sum of "Agreed cost"')}
-            ${lg('= Total expenses', cv('gastos'), 'Purchases + total subcontractor cost', 'tot')}
+            ${lg('+ Supervisor', cv('supCost'), 'Hours worked × rate per hour')}
+            ${lg('= Total expenses', cv('gastos'), 'Purchases + subcontractors + supervisor', 'tot')}
             ${lg('Subcontractors – paid so far', cv('subPaid'))}
             ${lg('Subcontractors – still owed', cv('subFalta', c.subFalta>0.004?'neg':''), 'Total cost − paid so far')}
           </section>
@@ -3955,6 +3960,7 @@ function ledger(){
     if (N(p.down)) tx.push({date: fallbackDate(p.downDate||p.start, p.month), kind:'in', cat:'Projects', amount:N(p.down), who:p.name, note:'Down payment'});
     (p.payments||[]).forEach(x => { if (N(x.amount)) tx.push({date: fallbackDate(x.date, p.month), kind:'in', cat:'Projects', amount:N(x.amount), who:p.name, note:x.note||'Payment'}); });
     (p.purchases||[]).forEach(x => { if (N(x.amount)) tx.push({date: fallbackDate(x.date, p.month), kind:'out', cat:'Materiales', amount:N(x.amount), who:x.store||'', note:`${x.item||'Purchase'} · ${p.name}`}); });
+    if (N(p.supRate)) (p.hours||[]).forEach(x => { if (N(x.hours)) tx.push({date: fallbackDate(x.date, p.month), kind:'out', cat:'Supervisor', amount: Math.round(N(x.hours)*N(p.supRate)*100)/100, who:p.supervisor||'Supervisor', note:`${N(x.hours)} h · ${p.name}`}); });
     (p.subs||[]).forEach(x => subPays(x).forEach(y => { if (N(y.amount)) tx.push({date: fallbackDate(y.date, p.month), kind:'out', cat:'Subcontratistas', amount:N(y.amount), who:x.name||'No name', note:`${x.work||''} · ${p.name}`}); }));
   });
   list('invoices').forEach(inv => { if (validProj(inv.projectId)) return; (inv.payments||[]).forEach(x => { if (N(x.amount)) tx.push({date:x.date||inv.date, kind:'in', cat:'Invoices', amount:N(x.amount), who:clientName(inv.clientId), note:inv.number}); }); });
