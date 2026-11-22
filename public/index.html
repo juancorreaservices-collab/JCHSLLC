@@ -641,6 +641,7 @@ button.lrow:hover{background:var(--surface-2)}
 .sub-pay b{text-align:right;color:var(--ink)}
 .sub-pay .icon-btn{width:24px;height:24px}
 .lg-two .ptr.r-buy{grid-template-columns:122px minmax(90px,1.2fr) minmax(80px,1fr) 84px minmax(60px,.7fr) 24px}
+.ptr.r-hrs,.lg-two .ptr.r-hrs{grid-template-columns:122px 90px minmax(100px,1fr) 24px}
 .lg-two .ptr.r-pay{grid-template-columns:122px 100px minmax(100px,1fr) 24px}
 .lg-two .ptr{padding-left:12px;padding-right:10px}
 .lg-two .ptr .in{padding-left:8px;padding-right:8px}
@@ -1618,10 +1619,11 @@ function subPayModal(p, i){
     `<button class="btn" data-act="modal-close">Cancel</button><button class="btn primary" data-act="sub-pay-save" data-i="${i}">Save payment</button>`);
   setTimeout(()=>$('#sp-amt')?.select(), 50);
 }
+const hoursFmt = h => (Math.round(h*100)/100).toLocaleString('en-US') + (h===1 ? ' hour' : ' hours');
 function projCalcs(p){
   const c = pc(p);
   return { ...c,
-    progressTxt: pct(c.progress), priceTxt: c.price?fmt(c.price,1):'—', extraTxt: fmt(c.extra,1), cobradoTxt: fmt(c.cobrado,1), faltaTxt: c.price?fmt(c.falta,1):'—', pctTxt: pct(c.pctCobrado),
+    progressTxt: pct(c.progress), priceTxt: c.price?fmt(c.price,1):'—', hoursTxt: hoursFmt((p.hours||[]).reduce((a,x)=>a+N(x.hours),0)), extraTxt: fmt(c.extra,1), cobradoTxt: fmt(c.cobrado,1), faltaTxt: c.price?fmt(c.falta,1):'—', pctTxt: pct(c.pctCobrado),
     comprasTxt: fmt(c.compras,1), subCostTxt: fmt(c.subCost,1), subPaidTxt: fmt(c.subPaid,1), subFaltaTxt: fmt(c.subFalta,1), gastosTxt: fmt(c.gastos,1),
     gananciaTxt: fmt(c.ganancia,1), margenTxt: pct(c.margen), efectivoTxt: fmt(c.efectivo,1) };
 }
@@ -1681,6 +1683,14 @@ function drProject(p){
               ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Note')}${del('payments',i)}</div>`).join('')}
               <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
             </div>` : `<div class="lempty">No payments after the down payment. Payments on this project's invoices appear here automatically.</div>`}
+          </section>
+          <section class="card pj-card"><div class="pj-card-h"><h3>Supervisor hours</h3><button class="btn sm" data-act="row-add" data-list="hours">${I.plus} Add hours</button></div>
+            <div class="lg-row"><span>Supervisor</span><div>${inp('supervisor','text','Name')}</div></div>
+            ${(p.hours||[]).length ? `<div class="ptbl">
+              <div class="ptr hd r-hrs"><span>Date</span><span>Hours</span><span>Note</span><span></span></div>
+              ${(p.hours||[]).map((r,i)=>`<div class="ptr r-hrs">${li('hours',i,'date',r.date,'date')}${li('hours',i,'hours',r.hours,'money','0')}${li('hours',i,'note',r.note,'text','What was done')}${del('hours',i)}</div>`).join('')}
+              <div class="ptr tot r-hrs"><span>Total</span><b data-calc="hours">${c.hoursTxt}</b><span></span><span></span></div>
+            </div>` : `<div class="lempty">No hours logged yet. Add the date and the hours the supervisor worked on this project.</div>`}
           </section>
         </div>
         <div class="lg-col">
@@ -2183,7 +2193,7 @@ async function act(name, el){
     case 'sub-pay-del': { const r = o.subs[+el.dataset.i]; r.pays = subPays(r).slice(); r.pays.splice(+el.dataset.j,1); subSync(r); persist(coll,o,true); return renderDrawer(); }
     case 'row-add': {
       const key = el.dataset.list; const arr = o[key] ||= [];
-      const blank = {payments: coll==='invoices'?{date:todayISO(),amount:'',method:''}:{date:todayISO(),amount:'',note:''}, purchases:{date:todayISO(),item:'',store:'',amount:'',note:''}, subs:{name:'',work:'',cost:'',paid:''}, tasks:{text:'',status:'Pendiente',notes:''}, items:{area:(o.items||[]).slice(-1)[0]?.area||'',desc:'',qty:1,rate:''}}[key];
+      const blank = {payments: coll==='invoices'?{date:todayISO(),amount:'',method:''}:{date:todayISO(),amount:'',note:''}, purchases:{date:todayISO(),item:'',store:'',amount:'',note:''}, subs:{name:'',work:'',cost:'',paid:''}, hours:{date:todayISO(),hours:'',note:''}, tasks:{text:'',status:'Pendiente',notes:''}, items:{area:(o.items||[]).slice(-1)[0]?.area||'',desc:'',qty:1,rate:''}}[key];
       arr.push(blank); persist(coll, o); renderDrawer(`[data-list="${key}"][data-i="${arr.length-1}"]${key==='payments'?'[data-k="amount"]':''}`); return;
     }
     case 'row-del': { o[el.dataset.list].splice(+el.dataset.i,1); if (coll==='invoices' && el.dataset.list==='payments') syncInvoicePayments(o); persist(coll,o,true); return renderDrawer(); }
