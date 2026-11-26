@@ -335,7 +335,9 @@
       <small>New accounts are blocked for now: no one else can create an account.</small>
       <h4>Connections</h4>
       <div class="row"><span>Gmail: ${!f.gmail ? 'Google is not set up in Vercel' : gmail?.connected ? 'connected · ' + escH(gmail.email) : gmail?.code === 'needs_reauth' ? 'Google rejected the app password' : 'not connected'}</span>${f.gmail && f.gmailMode !== 'app_password' ? `<button class="btn sm" data-act="gmail-connect">${gmail?.connected ? 'Reconnect' : 'Connect Gmail'}</button>` : ''}</div>
-      <div class="row"><span>AI (Claude): ${f.ai ? 'active' : 'key missing in Vercel'}</span></div>
+      <div class="row"><span>AI (Claude): ${f.ai ? 'active' : 'not turned on'}</span>${f.aiInApp ? '<button class="btn sm ghost" data-a="aiclear">Remove key</button>' : ''}</div>
+      ${f.ai ? '' : `<div class="row"><input class="in" id="kaikey" type="password" autocomplete="off" placeholder="Paste your Anthropic API key (sk-ant-…)" style="flex:1"><button class="btn sm" data-a="aikey">Turn on</button></div>
+      <small>Get the key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com → API keys</a>. It is stored on the server; nobody can read it back from the app.</small>`}
       <div class="row"><span>Commas (payments): ${f.commas ? 'connected' : 'key missing in Vercel'}</span></div>
       <h4>Backup</h4>
       <div class="row"><button class="btn sm" data-a="export">Download backup</button><label class="btn sm">Import backup<input type="file" id="kimp" accept="application/json,.json" hidden></label></div>
@@ -345,6 +347,8 @@
     w.addEventListener('click', async e => {
       const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
       if (a === 'close') w.remove();
+      if (a === 'aikey') { const k = $('#kaikey').value.trim(); if (!k) return say('Paste the key first.'); say('Checking the key with Anthropic…'); try { await api('/api/ai', { action: 'set_key', key: k }); say('AI turned on. Reloading…'); setTimeout(() => location.reload(), 700); } catch (x) { say(x.message || 'Could not save the key.'); } }
+      if (a === 'aiclear') { if (!confirm('Remove the AI key from Kuadra? Photo estimates and dictation into English will stop working.')) return; try { await api('/api/ai', { action: 'clear_key' }); location.reload(); } catch (x) { say(x.message || 'Could not remove the key.'); } }
       if (a === 'out') signOut();
       if (a === 'adduser') { const em = $('#knew').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return say('Enter a valid email.'); const { error } = await sb.from('kuadra_users').upsert({ email: em }); if (error) return say(error.message); accountPanel(); }
       if (a === 'deluser') { await sb.from('kuadra_users').delete().eq('email', e.target.closest('[data-e]').dataset.e); accountPanel(); }

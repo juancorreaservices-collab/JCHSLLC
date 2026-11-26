@@ -8,12 +8,27 @@ const MODEL = process.env.KUADRA_AI_MODEL || 'claude-opus-5-5';
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ code: 'invalid_request' });
   const user = await requireUser(req, res); if (!user) return;
-  if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ code: 'sampling_disabled', message: 'ANTHROPIC_API_KEY is not set' });
+
+  // The key can live in Vercel (ANTHROPIC_API_KEY) or be pasted once inside Kuadra (Account → Connections),
+  // where it is kept in a server-only table the browser cannot read.
+  if (req.body?.action === 'set_key') {
+    const key = String(req.body.key || '').trim();
+    if (!/^sk-ant-[\w-]{20,}$/.test(key)) return res.status(400).json({ code: 'invalid_request', message: 'That does not look like an Anthropic API key. It starts with sk-ant-' });
+    try { await new Anthropic({ apiKey: key }).models.list({ limit: 1 }); }
+    catch (e) { return res.status(400).json({ code: 'invalid_request', message: e instanceof Anthropic.AuthenticationError ? 'Anthropic rejected this key. Copy it again from the console.' : 'Could not check the key with Anthropic: ' + (e?.message || 'error') }); }
+    await user.sb.from('secrets').upsert({ key: 'anthropic', value: { key }, updated_at: new Date().toISOString() });
+    return res.status(200).json({ ok: true });
+  }
+  if (req.body?.action === 'clear_key') { await user.sb.from('secrets').delete().eq('key', 'anthropic'); return res.status(200).json({ ok: true }); }
+
+  let apiKey = process.env.ANTHROPIC_API_KEY || '';
+  if (!apiKey) { const { data } = await user.sb.from('secrets').select('value').eq('key', 'anthropic').maybeSingle(); apiKey = data?.value?.key || ''; }
+  if (!apiKey) return res.status(503).json({ code: 'sampling_disabled', message: 'The Claude API key is not set' });
 
   const { messages, tools } = req.body || {};
   if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ code: 'invalid_request' });
 
-  const client = new Anthropic();
+  const client = new Anthropic({ apiKey });
   try {
     const stream = client.beta.messages.stream({
       model: MODEL,

@@ -2441,7 +2441,7 @@ function projNotesBox(d, coll){
   </section>`;
 }
 function aiBox(d, coll){
-  if (AI.sample === null) return window.claude?.standalone && d && S.doc?.photoMode ? `<section class="aibox"><div class="ai-h"><span class="ai-badge">From photos</span></div><div class="note warn">Building an estimate from photos needs the AI, and it is not turned on in this Kuadra yet. It is a one-time setup: the <b>ANTHROPIC_API_KEY</b> has to be added in Vercel. Until then you can fill in the estimate by hand below.</div></section>` : '';
+  if (AI.sample === null) return window.claude?.standalone && d && S.doc?.photoMode ? `<section class="aibox"><div class="ai-h"><span class="ai-badge">From photos</span></div><div class="note warn">Building an estimate from photos needs the AI, and it is not turned on in this Kuadra yet. It is a one-time setup: tap your email at the bottom of the menu (on a phone, the status dot at the top), go to <b>Connections</b> and paste your Anthropic API key. Until then you can fill in the estimate by hand below.</div></section>` : '';
   if (S.doc?.photoMode && coll==='estimates' && !(d.items||[]).some(r=>(r.desc||'').trim()) && !S.doc?.aiQ?.length){ const n = docFiles(d).length;
     return `<section class="aibox photo">
       <div class="ai-h"><span class="ai-badge">Estimate from photos</span><small>Add photos of the job. Kuadra looks at them, writes the work line by line, and you edit everything before sending.</small></div>
