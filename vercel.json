@@ -11,11 +11,11 @@
     },
     {
       "source": "/o/:token",
-      "destination": "/api/track?k=open&t=:token"
+      "destination": "/api/pub?fn=track&k=open&t=:token"
     },
     {
       "source": "/p/:token",
-      "destination": "/api/track?k=pay&t=:token"
+      "destination": "/api/pub?fn=track&k=pay&t=:token"
     }
   ],
   "functions": {
@@ -32,8 +32,8 @@
       "maxDuration": 60,
       "includeFiles": "supabase/schema.sql"
     },
-    "api/track.js": {
-      "maxDuration": 15
+    "api/pub.js": {
+      "maxDuration": 60
     }
   },
   "headers": [
@@ -67,6 +67,12 @@
           "value": "no-cache"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/pub?fn=cron",
+      "schedule": "0 11 * * *"
     }
   ]
 }

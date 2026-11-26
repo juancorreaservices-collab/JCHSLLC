@@ -26,6 +26,7 @@ export default async function handler(req, res) {
         type: 'onetime_non_reusable',
         metadata: { invoice: String(b.number || ''), invoice_id: String(b.invoiceId || ''), source: 'kuadra' },
         success_url: `${origin(req)}/gracias.html`,
+        ...(process.env.COMMAS_HOOK_SECRET ? { webhook_url: `${process.env.KUADRA_SITE || origin(req)}/api/pub?fn=hook&s=${process.env.COMMAS_HOOK_SECRET}` } : {}),
       }) });
       const id = r?.data?.checkout_session_id, url = r?.data?.payment_link;
       if (!url) return res.status(502).json({ code: 'upstream_error', message: 'Commas did not return a payment link' });

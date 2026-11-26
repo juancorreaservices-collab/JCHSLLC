@@ -1346,7 +1346,7 @@ async function boot(){
         obOverlay(c, next);
         if (c==='views' && S.loaded.views) for (const [id,v] of Object.entries(next)){ const o = S.views[id] || {}; if ((v.count||0) > (o.count||0) || (v.payClicks||0) > (o.payClicks||0)){ const d = S[v.coll]?.[id]; if (d) toast(`${clientName(d.clientId)||'The client'} ${(v.payClicks||0) > (o.payClicks||0) ? 'opened the payment page for' : 'viewed'} ${v.coll==='invoices'?'invoice':'estimate'} ${d.number}`); } }
         S[c] = next; S.loaded[c] = !snap.metadata.fromCache || S.loaded[c]; if (c==='estimates') setTimeout(watchReplies, 0); if (c==='estimates' || c==='invoices' || c==='clients') checkApprovals();
-        if (!snap.metadata.fromCache){ S.live = true; clearTimeout(loadTimer); obStatus(); $('#banner').innerHTML=''; if (COLL.every(k=>S.loaded[k])) setTimeout(draftOffer, 600); }
+        if (!snap.metadata.fromCache){ S.live = true; clearTimeout(loadTimer); obStatus(); $('#banner').innerHTML=''; if (COLL.every(k=>S.loaded[k])) setTimeout(draftOffer, 600); if (S.remindFromLink && S.loaded.invoices && S.loaded.clients){ S.remindFromLink = false; setTimeout(remindersModal, 400); } }
         renderView();
       }, e => { setDb('off','Data error'); clearTimeout(loadTimer); $('#banner').innerHTML = `<div class="banner">Could not load the data (${esc(e.code)}). Reload the page.</div>`; });
     }
@@ -1445,6 +1445,7 @@ function vPanel(){
   <div class="head"><div><h1>Dashboard</h1><p>${monthLabel(curMonth())}</p></div>
     <div class="tools"><button class="btn" data-act="new-project">${I.plus} Project</button><button class="btn" data-act="new-est">${I.plus} Estimate</button><button class="btn" data-act="quick-new">${I.plus} Quick service</button><button class="btn primary" data-act="new-inv">${I.plus} Invoice</button></div></div>
   ${loading()? loadingBlock('your numbers') : `
+  ${needsReminder().length ? `<section class="card apv-banner"><div><b>${needsReminder().length} overdue invoice${needsReminder().length===1?' needs':'s need'} a reminder</b><span class="muted">${fmt(needsReminder().reduce((a,d)=>a+docTotals(d).balance,0),1)} past due. Each reminder opens for you to review before it is sent.</span></div><button class="btn primary" data-act="reminders">Review reminders</button></section>` : ''}
   ${pendingApprovals().map(e=>`<section class="card apv-banner"><div><b>${esc(e.sign.name)} signed estimate ${esc(e.number)}</b><span class="muted">${esc(docName(e,'estimates'))} · ${fmt(docTotals(e).total,1)} · signed on ${fdate(e.sign.at)}</span></div><button class="btn primary" data-act="approve-open" data-id="${e.id}">Review and approve invoice</button></section>`).join('')}
   <div class="grid g3">
     <button class="card tile link" data-go="facturas"><span class="label">Outstanding on invoices</span><strong class="num">${fmt(openTotal)}</strong><small>${open.length} open invoice${open.length===1?'':'s'}${open.length===1?'':''}</small></button>
@@ -3601,6 +3602,7 @@ async function ensurePayLink(inv, force){
 let commasBusy = false;
 async function checkCommasPayments(){
   if (!S.commas || commasBusy || !S.loaded.invoices) return; commasBusy = true;
+  for (const inv of list('invoices')){ const seen = new Set(); const kept = (inv.payments||[]).filter(p => !p.commasId || (!seen.has(p.commasId) && seen.add(p.commasId))); if (kept.length !== (inv.payments||[]).length){ inv.payments = kept; syncInvoicePayments(inv); persist('invoices', inv, true); } }
   try {
     for (const inv of list('invoices')){
       if (!inv.commasId || (inv.payments||[]).some(p=>p.commasId===inv.commasId)) continue;
@@ -3668,6 +3670,7 @@ async function sendReceipt(inv, pay, quiet){
 /* Payment reminders: one tap opens a ready-to-send reminder for an unpaid invoice; the owner reviews it and sends */
 const unpaidSent = () => list('invoices').filter(i=>i.sentAt && docTotals(i).total>0 && docTotals(i).balance>0.004).sort((a,b)=>String(a.due||a.date).localeCompare(String(b.due||b.date)));
 const daysLate = d => d.due ? Math.floor((new Date(todayISO()) - new Date(d.due))/86400000) : 0;
+const needsReminder = () => unpaidSent().filter(d => { if (daysLate(d) < 3) return false; const r = d.reminders||[]; return !r.length || (Date.now() - new Date(r[r.length-1].at).getTime()) > 7*86400000; });
 function remindLine(d){ const r = d.reminders||[]; return r.length ? `Last reminder ${fdate(r[r.length-1].at)}${r.length>1?` · ${r.length} sent`:''}` : ''; }
 async function remindInvoice(d){
   const cl = S.clients[d.clientId]; if (!cl){ toast('This invoice has no client'); return; }
@@ -4190,7 +4193,8 @@ async function exportCSV(){
 document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(m => { if (!m.contains(e.target) || e.target.closest('.menu-list button')) m.open = false; }); });
 document.addEventListener('toggle', e => { if (e.target.matches?.('[data-acc]') && S.doc) S.doc.bizOpen = e.target.open; }, true);
 /* ---------- Start ---------- */
-(()=>{ const h = location.hash.slice(1); if (VIEWS.some(v=>v[0]===h)) S.view = h; const m = /^aprobar=([\w-]+)$/.exec(h); if (m){ S.approveFromLink = m[1]; try { history.replaceState(null,'','#panel'); } catch(_){} } })();
+(()=>{ const h = location.hash.slice(1); if (VIEWS.some(v=>v[0]===h)) S.view = h; if (h==='recordatorios'){ S.view = 'facturas'; S.remindFromLink = true; try { history.replaceState(null,'','#facturas'); } catch(_){} }
+  const m = /^aprobar=([\w-]+)$/.exec(h); if (m){ S.approveFromLink = m[1]; try { history.replaceState(null,'','#panel'); } catch(_){} } })();
 boot();
 </script>
 
