@@ -406,6 +406,12 @@ details.menu > summary::-webkit-details-marker{display:none}
 .viewline{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-3);margin:4px 0 0}
 .viewline svg{width:15px;height:15px}
 .viewline.seen{color:var(--ok);font-weight:600}
+.photo-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1.5px dashed var(--line);border-radius:12px;padding:26px 16px;cursor:pointer;background:var(--surface-2);color:var(--ink-2);text-align:center}
+.photo-drop:hover{border-color:var(--accent);color:var(--accent)}
+.photo-drop svg{width:28px;height:28px}
+.photo-drop b{font-size:15px;color:var(--ink)}
+.photo-drop span{font-size:13px;color:var(--ink-3)}
+.photo-drop.has{padding:14px 16px;flex-direction:row;gap:10px}
 .dp-items{display:flex;flex-direction:column}
 .dp-desc{position:relative;display:flex;flex-direction:column;gap:3px;min-width:0}
 .dp-desc.mic > input{padding-right:38px}
@@ -2174,6 +2180,7 @@ async function act(name, el){
     case 'close': return closeDrawer();
     case 'new-project': return newProject(el.dataset.month);
     case 'new-est': return newDoc('estimates');
+    case 'est-photos': { await newDoc('estimates'); if (S.doc){ S.doc.photoMode = true; renderDocNow(); } return; }
     case 'new-inv': return newDoc('invoices');
     case 'new-client': { const c={id:uid('c'),name:'New client',contactFirst:'',contactLast:'',email:'',phone:'',mobile:'',company:'',website:'',account:'',address:'',address2:'',city:'',state:'FL',zip:'',shipSame:'',notes:'',createdAt:new Date().toISOString()}; persist('clients',c,true); openDrawer('clients',c.id); setTimeout(()=>$('.title-in')?.select(),250); return; }
     case 'doc-tab': S[el.dataset.key] = el.dataset.v; return renderView();
@@ -2434,7 +2441,21 @@ function projNotesBox(d, coll){
   </section>`;
 }
 function aiBox(d, coll){
-  if (AI.sample === null) return '';
+  if (AI.sample === null) return window.claude?.standalone && d && S.doc?.photoMode ? `<section class="aibox"><div class="ai-h"><span class="ai-badge">From photos</span></div><div class="note warn">Building an estimate from photos needs the AI, and it is not turned on in this Kuadra yet. It is a one-time setup: the <b>ANTHROPIC_API_KEY</b> has to be added in Vercel. Until then you can fill in the estimate by hand below.</div></section>` : '';
+  if (S.doc?.photoMode && coll==='estimates' && !(d.items||[]).some(r=>(r.desc||'').trim()) && !S.doc?.aiQ?.length){ const n = docFiles(d).length;
+    return `<section class="aibox photo">
+      <div class="ai-h"><span class="ai-badge">Estimate from photos</span><small>Add photos of the job. Kuadra looks at them, writes the work line by line, and you edit everything before sending.</small></div>
+      <label class="photo-drop ${n?'has':''}">${I.camera}<b>${n?'Add more photos':'Take or choose photos'}</b><span>${n?`${n} added`:'Job site, damage, paper notes, inspections'}</span><input type="file" id="ai-file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" multiple hidden></label>
+      ${aiFilesHTML(d)}
+      <textarea class="in plain" id="ai-in" rows="2" placeholder="Optional: client, address, prices or anything the photos do not show. You can dictate it in Spanish."></textarea>
+      <div id="ai-partial" class="ai-partial"></div>
+      <div class="ai-actions">
+        ${AI.dict ? `<button class="btn" id="ai-mic" data-act="ai-mic">${I.mic} ${AI.listening?'Stop':'Dictate'}</button>` : ''}
+        <button class="btn primary" id="ai-go" data-act="ai-go" ${n?'':'disabled'}>Generate estimate</button>
+        <button class="btn ghost" id="ai-stop" data-act="ai-stop" hidden>Stop</button>
+        <span id="ai-status" class="muted" style="font-size:13px">${n?'':'Add at least one photo'}</span>
+      </div>
+    </section>`; }
   const isInv = coll==='invoices'; const has = (d.items||[]).some(r=>(r.desc||'').trim());
   const ph = has ? 'E.g. change the painting to 3500, add final cleaning 350 and remove the demo.'
                  : (isInv ? 'E.g. Invoice for Ron Beck, kitchen cabinets 29,000 minus the 8,976 down payment. Due in 15 days.'
@@ -2604,7 +2625,7 @@ How to use them:
 - Handwritten or printed invoice/estimate: copy every line and its price exactly as written (clean up the wording into professional English, keep the amounts), plus the client, address, deposits or payments already received if written.
 - Inspection report: turn each repair the owner should do into one line, grouped by area. Prices: only those the owner or the document gives, or a clear catalog match; otherwise null and ask in "questions".
 - Store receipts: they show material costs. Do NOT add them as lines unless the owner asks; mention the receipt total in "message" and ask in "questions" whether to bill the materials and with what markup.
-- Photos of the job: use them only to understand the scope.
+- Photos of the job: study each photo and build the scope from what is VISIBLE: damage to repair, things to replace, surfaces to paint or finish, cleanup. Write one professional line per task, grouped by area of the house, in English. Describe only what the photos show or the owner says; do not invent measurements, quantities, brands or hidden problems. Prices: only those the owner gives or a clear catalog match; otherwise null and ask in "questions". If something in a photo is unclear, ask about it instead of guessing.
 - If something is unreadable, ask about it in "questions" instead of guessing.
 - The owner's text request, if any, takes priority over the documents.
 
@@ -3068,7 +3089,7 @@ function vDocs(kind){
   };
   return `
   <div class="head"><div><h1>${isInv?'Invoices':'Estimates'}</h1><p>${isInv?'Create, send and collect on your invoices.':'Quote jobs and convert them to invoices in one click.'}</p></div>
-    <div class="tools">${isInv?`${unpaidSent().length?`<button class="btn" data-act="reminders">Reminders <span class="cnt">${unpaidSent().length}</span></button>`:''}<button class="btn" data-act="quick-new">Quick service</button>`:`<button class="btn" data-go="productos">Products & services</button>`}<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Create invoice':'Create estimate'}</button></div></div>
+    <div class="tools">${isInv?`${unpaidSent().length?`<button class="btn" data-act="reminders">Reminders <span class="cnt">${unpaidSent().length}</span></button>`:''}<button class="btn" data-act="quick-new">Quick service</button>`:`<button class="btn" data-go="productos">Products & services</button><button class="btn" data-act="est-photos">${I.camera} From photos</button>`}<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Create invoice':'Create estimate'}</button></div></div>
   ${loading()? loadingBlock(isInv?'your invoices':'your estimates') : `
   <div class="grid g4">${tiles}</div>
   <section class="card">
