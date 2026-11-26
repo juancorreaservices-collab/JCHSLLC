@@ -396,6 +396,13 @@ details.menu > summary::-webkit-details-marker{display:none}
 .pn-row label small{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
 .pn-row.done label span{color:var(--ink-3);text-decoration:line-through}
 .pn-row .btn{flex-shrink:0}
+.rm-list{display:flex;flex-direction:column}
+.rm-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rm-row:last-child{border-bottom:0}
+.rm-m{flex:1;min-width:0;display:flex;flex-direction:column}
+.rm-m small{color:var(--ink-3);font-size:12.5px}
+.btn .cnt{background:var(--bad);color:#fff;border-radius:99px;font-size:11px;padding:1px 7px;margin-left:4px}
+@media(max-width:560px){.rm-row{flex-wrap:wrap}.rm-m{flex-basis:100%}}
 .viewline{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-3);margin:4px 0 0}
 .viewline svg{width:15px;height:15px}
 .viewline.seen{color:var(--ok);font-weight:600}
@@ -434,7 +441,7 @@ details.menu > summary::-webkit-details-marker{display:none}
 .step-b{flex:1;min-width:160px}
 .step-b h3{font-size:16px}
 .step-b p{margin:2px 0 0;font-size:13px}
-.payline{display:grid;grid-template-columns:110px minmax(0,1fr) auto 28px;gap:10px;align-items:center;border-top:1px solid var(--line);padding-top:6px}
+.payline{display:grid;grid-template-columns:110px minmax(0,1fr) auto auto 28px;gap:10px;align-items:center;border-top:1px solid var(--line);padding-top:6px}
 .pc-list{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto}
 .pc-item{display:flex;gap:10px;align-items:center;border:0;background:none;padding:8px;border-radius:8px;cursor:pointer;color:var(--ink)}
 .pc-item:hover{background:var(--surface-2)}
@@ -1066,7 +1073,7 @@ function decodeEntities(s){ const t=document.createElement('textarea'); t.innerH
 const DEFAULT_SETTINGS = {
   legalName:'JCHS LLC', tradeName:'JC Home Services', ownerName:'Juan Correa', phone:'', email:'', address:'', license:'',
   goalAmount:50000, goalDate:'2026-12-26',
-  invPrefix:'INV-', invNext:1001, estPrefix:'EST-', estNext:1001, taxRate:0, payDays:15, markup:15,
+  invPrefix:'INV-', invNext:1001, estPrefix:'EST-', estNext:1001, taxRate:0, payDays:15, markup:15, autoReceipt:'1',
   estTerms:'Thank you for the opportunity to work on your home. Please let me know if you have any questions.',
   invTerms:'Thank you for your business!',
   contractTerms:'', flNotices:'', cilbContact:'Construction Industry Licensing Board, 2601 Blair Stone Road, Tallahassee, FL 32399-1039, (850) 487-1395',
@@ -1893,7 +1900,9 @@ function recordPayModal(inv){
       <label class="f"><span>Amount</span><input class="in plain n" id="rp-amt" inputmode="decimal" value="${Math.max(0,t.balance).toFixed(2)}"></label>
       <label class="f"><span>Method</span><select class="in plain" id="rp-method">${PAY_METHODS_IN.map(m=>`<option>${m}</option>`).join('')}</select></label>
       <label class="f"><span>Note (optional)</span><input class="in plain" id="rp-note" placeholder="E.g. check #"></label>
-    </div><div id="rp-msg"></div>`,
+    </div>
+    ${S.mcp && S.clients[inv.clientId]?.email ? `<label class="qs-keep" style="margin-top:12px"><input type="checkbox" id="rp-receipt" ${S.settings.autoReceipt!==''?'checked':''}> Email a receipt to ${esc(S.clients[inv.clientId].name)} (${esc(S.clients[inv.clientId].email)})</label>` : `<p class="muted" style="font-size:13px;margin:12px 0 0">${S.mcp?'This client has no email, so no receipt will be sent.':'Email is not connected, so no receipt will be sent.'}</p>`}
+    <div id="rp-msg"></div>`,
     `<button class="btn" data-act="modal-close">Cancel</button><button class="btn primary" data-act="rp-save" data-id="${inv.id}">Save payment</button>`);
   setTimeout(()=>$('#rp-amt')?.select(), 50);
 }
@@ -2181,14 +2190,18 @@ async function act(name, el){
       if (k==='invoices' && d0.projectId){ d0.payments = []; syncInvoicePayments(d0); }
       Object.values(S.estimates).forEach(e=>{ if (e.convertedTo===id){ e.convertedTo=''; persist('estimates',e,true); } });
       closeModal(); await remove(k, id); renderView(); render(); toast(k==='invoices'?'Invoice deleted':'Estimate deleted'); return; }
+    case 'pay-receipt': { const pay = (o.payments||[])[+el.dataset.i]; if (pay) return sendReceipt(o, pay); return; }
+    case 'remind': { const i = el.dataset.id ? S.invoices[el.dataset.id] : o; if (i) return remindInvoice(i); return; }
+    case 'reminders': return remindersModal();
     case 'row-pay': { const i = S.invoices[el.dataset.id]; if (i) recordPayModal(i); return; }
     case 'row-send': { const k = S.view==='facturas'?'invoices':'estimates'; const d = S[k][el.dataset.id]; if (d) composeDoc(d, k); return; }
     case 'record-pay': return recordPayModal(o);
     case 'rp-save': {
       const inv = S.invoices[el.dataset.id]; if (!inv) return;
       const amt = Math.round(N($('#rp-amt').value)*100)/100; if (amt<=0){ $('#rp-msg').innerHTML='<div class="note bad">Enter an amount greater than zero.</div>'; return; }
-      (inv.payments ||= []).push({date:$('#rp-date').value||todayISO(), amount:amt, method:[$('#rp-method').value, $('#rp-note').value.trim()].filter(Boolean).join(' · ')});
-      syncInvoicePayments(inv); persist('invoices', inv, true); closeModal(); if (S.drawer) renderDrawer(); renderView(); render();
+      const pay = {date:$('#rp-date').value||todayISO(), amount:amt, method:[$('#rp-method').value, $('#rp-note').value.trim()].filter(Boolean).join(' · ')}; const wantReceipt = !!$('#rp-receipt')?.checked;
+      (inv.payments ||= []).push(pay);
+      syncInvoicePayments(inv); persist('invoices', inv, true); closeModal(); if (wantReceipt) sendReceipt(inv, pay); if (S.drawer) renderDrawer(); renderView(); render();
       toast(docTotals(inv).balance<=0.004 ? `Payment recorded: ${inv.number} is now paid in full` : 'Payment recorded'); return;
     }
     case 'qc-save': {
@@ -2859,9 +2872,9 @@ function docView(d, coll, isInv){
     ${isInv && d.fromEstimate && S.estimates[d.fromEstimate] ? `<div class="note">Created from estimate <button class="linkbtn" data-act="open-est" data-id="${d.fromEstimate}">${esc(S.estimates[d.fromEstimate].number)}</button></div>`:''}
     <div class="steps">
       <section class="card step"><div class="step-i">1</div><div class="step-b"><h3>Create</h3><p class="muted">Created on ${fdate(d.createdAt||d.date)}</p></div><button class="btn sm" data-act="doc-edit">Edit ${docLabel(coll)}</button></section>
-      <section class="card step"><div class="step-i">2</div><div class="step-b"><h3>Send</h3><p class="muted">${sentLine}</p>${viewLine(d)?`<p class="viewline ${S.views[d.id]?.count||S.views[d.id]?.payClicks?'seen':''}">${I.eye} ${esc(viewLine(d))}</p>`:''}</div><div class="tools"><button class="btn sm ${d.sentAt?'':'primary'}" data-act="email-doc">${'Send '+docLabel(coll)}</button>${!d.sentAt && !isInv?`<button class="btn sm ghost" data-act="mark-sent">Mark as sent</button>`:''}</div></section>
+      <section class="card step"><div class="step-i">2</div><div class="step-b"><h3>Send</h3><p class="muted">${sentLine}</p>${viewLine(d)?`<p class="viewline ${S.views[d.id]?.count||S.views[d.id]?.payClicks?'seen':''}">${I.eye} ${esc(viewLine(d))}</p>`:''}${isInv && remindLine(d)?`<p class="viewline">${esc(remindLine(d))}</p>`:''}</div><div class="tools">${isInv && d.sentAt && t.balance>0.004 && t.total>0?`<button class="btn sm primary" data-act="remind">Send reminder</button>`:''}<button class="btn sm ${d.sentAt?'':'primary'}" data-act="email-doc">${'Send '+docLabel(coll)}</button>${!d.sentAt && !isInv?`<button class="btn sm ghost" data-act="mark-sent">Mark as sent</button>`:''}</div></section>
       ${isInv ? `<section class="card step col"><div style="display:flex;gap:14px;align-items:flex-start;width:100%;flex-wrap:wrap"><div class="step-i">3</div><div class="step-b"><h3>Collect</h3><p class="muted">Balance ${fmt(t.balance,1)} of ${fmt(t.total,1)}</p></div>${t.balance>0.004?'':'<span class="pill ok">Paid</span>'}</div>
-          ${pays.length?`<div class="rows" style="width:100%">${pays.map((p,i)=>`<div class="payline"><span>${fdate(p.date)}</span><span class="muted">${esc(p.method||'')}</span><b class="num">${fmt(p.amount,1)}</b><button class="icon-btn" data-act="row-del" data-list="payments" data-i="${i}" aria-label="Remove payment">${I.x}</button></div>`).join('')}</div>`:''}
+          ${pays.length?`<div class="rows" style="width:100%">${pays.map((p,i)=>`<div class="payline"><span>${fdate(p.date)}</span><span class="muted">${esc(p.method||'')}</span><b class="num">${fmt(p.amount,1)}</b><button class="btn sm ghost" data-act="pay-receipt" data-i="${i}" title="${p.receiptAt?'Sent to '+esc(p.receiptTo||'')+' on '+fdate(p.receiptAt)+'. Tap to send it again.':'Email a receipt for this payment'}">${p.receiptAt?'Receipt sent':'Send receipt'}</button><button class="icon-btn" data-act="row-del" data-list="payments" data-i="${i}" aria-label="Remove payment">${I.x}</button></div>`).join('')}</div>`:''}
           <div style="width:100%;display:flex;flex-direction:column;gap:8px">${field('Commas payment link for this invoice','payLink',d.payLink,'url')}
           <div class="dr-actions">${S.commas && t.balance>0.5?`<button class="btn sm primary" data-act="commas-link">${I.link} ${d.payLink?'Create new link':'Create payment link'}</button>`:''}<a class="btn sm" href="https://fanbasis.com" target="_blank" rel="noopener">${I.link} Open Commas</a><button class="btn sm" data-act="copy-amt">Copy amount: ${fmt(dueNow(d),1)}</button><button class="btn sm" data-act="copy-pay">Copy link</button><button class="btn sm" data-act="copy-paymsg">Copy message for WhatsApp</button></div>
           ${payLinks(d).some(l=>l.url)?`<span class="note ok" style="font-size:12px">${I.link} The email and PDF include the payment button.</span>`:`<span class="note warn" style="font-size:12px">Payment link missing: create one in Commas for ${fmt(dueNow(d),1)} and paste it above before sending.</span>`}</div></section>`
@@ -3049,12 +3062,12 @@ function vDocs(kind){
   }
   const action = d => {
     const s = st(d);
-    if (isInv) return s==='Borrador' ? `<button class="btn sm" data-act="row-send" data-id="${d.id}">Send</button>` : s!=='Pagada' ? `<button class="btn sm" data-act="row-pay" data-id="${d.id}">Record payment</button>` : `<span class="muted" style="font-size:12px">Paid</span>`;
+    if (isInv) return s==='Borrador' ? `<button class="btn sm" data-act="row-send" data-id="${d.id}">Send</button>` : s!=='Pagada' ? `${d.sentAt?`<button class="btn sm ghost" data-act="remind" data-id="${d.id}">Remind</button>`:''}<button class="btn sm" data-act="row-pay" data-id="${d.id}">Record payment</button>` : `<span class="muted" style="font-size:12px">Paid</span>`;
     return s==='Convertido' ? `<button class="btn sm ghost" data-open="invoices:${d.convertedTo}">View invoice</button>` : s==='Borrador' ? `<button class="btn sm" data-act="row-send" data-id="${d.id}">Send</button>` : s==='No aceptado' ? `<span class="muted" style="font-size:12px">Archived</span>` : `<button class="btn sm" data-act="row-convert" data-id="${d.id}">Convert to invoice</button>`;
   };
   return `
   <div class="head"><div><h1>${isInv?'Invoices':'Estimates'}</h1><p>${isInv?'Create, send and collect on your invoices.':'Quote jobs and convert them to invoices in one click.'}</p></div>
-    <div class="tools">${isInv?`<button class="btn" data-act="quick-new">Quick service</button>`:`<button class="btn" data-go="productos">Products & services</button>`}<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Create invoice':'Create estimate'}</button></div></div>
+    <div class="tools">${isInv?`${unpaidSent().length?`<button class="btn" data-act="reminders">Reminders <span class="cnt">${unpaidSent().length}</span></button>`:''}<button class="btn" data-act="quick-new">Quick service</button>`:`<button class="btn" data-go="productos">Products & services</button>`}<button class="btn primary" data-act="${isInv?'new-inv':'new-est'}">${I.plus} ${isInv?'Create invoice':'Create estimate'}</button></div></div>
   ${loading()? loadingBlock(isInv?'your invoices':'your estimates') : `
   <div class="grid g4">${tiles}</div>
   <section class="card">
@@ -3594,7 +3607,8 @@ async function checkCommasPayments(){
       if (docTotals(inv).balance < 0.005) continue;
       let r; try { r = await S.commas.status(inv.commasId); } catch(_){ continue; }
       if (!r?.paid) continue;
-      (inv.payments ||= []).push({date: todayISO(), amount: N(inv.commasAmt), method: 'Card (Commas) · online payment', commasId: inv.commasId});
+      const cpay = {date: todayISO(), amount: N(inv.commasAmt), method: 'Card (Commas) · online payment', commasId: inv.commasId};
+      (inv.payments ||= []).push(cpay); if (S.settings.autoReceipt!=='') setTimeout(()=>sendReceipt(inv, cpay, true), 800);
       inv.payLink = ''; inv.commasUrl = '';   // that link was for one payment; the next one gets its own
       syncInvoicePayments(inv); persist('invoices', inv, true);
       toast(`${clientName(inv.clientId)||'The client'} paid ${fmt(inv.commasAmt,1)} on invoice ${inv.number}`);
@@ -3608,6 +3622,66 @@ async function composeInvoice(d){
     try { await ensurePayLink(d); } catch(e){ toast('Could not create the Commas link: ' + (e?.message||'error') + '. You can paste it manually.'); }
   }
   composeDoc(d, 'invoices', true);
+}
+/* Receipts: every payment on an invoice can be answered with a personal receipt email (with the updated invoice PDF) */
+const methodEn = m => String(m||'').split(' · ').map(x=>tr(x.trim())).filter(Boolean).join(' · ');
+function receiptMail(inv, pay){
+  const st = S.settings, cl = S.clients[inv.clientId] || {}, t = docTotals(inv); const first = (cl.name||'').split(' ')[0];
+  const where = inv.property || jobAddr(cl) || ''; const at = where ? ` for the work at ${where}` : ''; const paidFull = t.balance <= 0.004;
+  const n = Math.max(1, (inv.payments||[]).indexOf(pay)+1); const rno = `${inv.number}-R${n}`;
+  const intro = `Hi ${first},\n\nThank you! We received your payment of ${money(N(pay.amount))} for invoice ${inv.number}${at}.${paidFull ? ' Your invoice is now paid in full. We appreciate your business.' : ` Your remaining balance is ${money(t.balance)}.`}`;
+  const sign = `Thank you,\n${st.ownerName}\n${st.tradeName}\n${st.phone}\n${st.email}`;
+  const F = 'font-family:Arial,Helvetica,sans-serif;'; const INK = '#0B1B33', MUTE = '#8492A8', SOFT = '#44536B', LINE = '#E3E9F1';
+  const para = x => `<div style="${F}font-size:15px;line-height:1.6;color:${INK};white-space:pre-wrap">${esc(x)}</div>`;
+  const row = (a,b) => `<tr><td style="${F}padding:8px 0;color:${SOFT};font-size:13px;border-top:1px solid ${LINE}">${a}</td><td align="right" style="${F}padding:8px 0;font-size:13px;font-weight:bold;color:${INK};border-top:1px solid ${LINE}">${b}</td></tr>`;
+  const card = `<div style="${F}font-size:11px;letter-spacing:1.6px;color:${MUTE};text-transform:uppercase">Payment received</div><div style="${F}font-size:32px;font-weight:bold;color:#1e7a4c;margin:4px 0 14px">${money(N(pay.amount))}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Receipt', esc(rno))}${row('Date', fdateEn(pay.date||todayISO()))}${methodEn(pay.method)?row('Method', esc(methodEn(pay.method))):''}${row('Invoice', esc(inv.number))}${where?row('Property', esc(where)):''}${row('Invoice total', money(t.total))}${row('Total paid', money(t.paid))}${row(paidFull?'Balance':'Remaining balance', paidFull?'Paid in full':money(t.balance))}</table>`;
+  const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F7FB" style="background-color:#F4F7FB"><tr><td align="center" style="padding:24px 12px">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid ${LINE};border-top:4px solid ${INK};border-radius:10px">
+      <tr><td style="padding:28px 32px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="top"><img src="cid:att0" alt="${esc(st.tradeName)}" width="130" style="display:block;width:130px;height:auto;border:0"></td>
+        <td valign="top" align="right"><div style="${F}font-size:22px;letter-spacing:6px;color:${INK}">RECEIPT</div><div style="${F}font-size:12px;color:${MUTE};letter-spacing:1.5px;margin-top:6px">${esc(rno)}</div></td></tr></table></td></tr>
+      <tr><td style="padding:4px 32px 0">${para(intro)}</td></tr>
+      <tr><td style="padding:20px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:10px"><tr><td style="padding:22px">${card}</td></tr></table></td></tr>
+      <tr><td style="padding:22px 32px 26px">${para(sign)}</td></tr>
+      <tr><td bgcolor="#F5F8FC" style="background-color:#F5F8FC;border-top:1px solid ${LINE};padding:14px 32px;${F}font-size:12px;color:${MUTE};border-radius:0 0 10px 10px">The updated invoice is attached as a PDF.</td></tr>
+    </table></td></tr></table>`;
+  return { subject: `Receipt - Payment of ${money(N(pay.amount))} - Invoice ${inv.number} - ${st.tradeName}`, text: `${intro}\n\nReceipt ${rno}\nDate: ${fdateEn(pay.date||todayISO())}${methodEn(pay.method)?`\nMethod: ${methodEn(pay.method)}`:''}\nInvoice total: ${money(t.total)}\nTotal paid: ${money(t.paid)}\n${paidFull?'Balance: Paid in full':'Remaining balance: '+money(t.balance)}\n\n${sign}`, html };
+}
+async function sendReceipt(inv, pay, quiet){
+  const cl = S.clients[inv.clientId]; const say = m => { if (!quiet) toast(m); };
+  if (!pay || !(N(pay.amount) > 0)) return false;
+  if (!cl?.email){ say('No receipt sent: this client has no email'); return false; }
+  if (!S.mcp){ say('No receipt sent: email is not set up'); return false; }
+  if (!window.jspdf){ say('No receipt sent: the PDF generator did not load'); return false; }
+  if (sendReceipt.busy?.has(pay)) return false; (sendReceipt.busy ||= new Set()).add(pay);
+  try {
+    const m = receiptMail(inv, pay), pdf = makePDF(inv, 'invoices');
+    await S.mcp.callTool('Gmail', 'send_message', { to:[cl.email], subject:m.subject, body:m.text, htmlBody:m.html, attachments:[{content: LOGO_PDF, filename:'jc-home-services-logo.jpg', mimeType:'image/jpeg', inline:true}, {content: pdf.base64, filename: pdf.name, mimeType:'application/pdf'}] });
+    pay.receiptAt = new Date().toISOString(); pay.receiptTo = cl.email; persist('invoices', inv, true);
+    toast(`Receipt sent to ${cl.name}`); if (S.view==='doc') renderDocNow();
+    S.mcp.invalidate?.('Gmail').catch(()=>{});
+    return true;
+  } catch(e){ toast('The receipt could not be sent: ' + (e?.message || 'email error') + '. You can send it from the invoice.'); return false; }
+  finally { sendReceipt.busy.delete(pay); }
+}
+/* Payment reminders: one tap opens a ready-to-send reminder for an unpaid invoice; the owner reviews it and sends */
+const unpaidSent = () => list('invoices').filter(i=>i.sentAt && docTotals(i).total>0 && docTotals(i).balance>0.004).sort((a,b)=>String(a.due||a.date).localeCompare(String(b.due||b.date)));
+const daysLate = d => d.due ? Math.floor((new Date(todayISO()) - new Date(d.due))/86400000) : 0;
+function remindLine(d){ const r = d.reminders||[]; return r.length ? `Last reminder ${fdate(r[r.length-1].at)}${r.length>1?` · ${r.length} sent`:''}` : ''; }
+async function remindInvoice(d){
+  const cl = S.clients[d.clientId]; if (!cl){ toast('This invoice has no client'); return; }
+  if (S.commas && docTotals(d).balance > 0.5){ toast('Getting the payment link ready…'); try { await ensurePayLink(d); } catch(e){ toast('Could not create the Commas link: ' + (e?.message||'error') + '. You can paste it by hand.'); } }
+  const st = S.settings, t = docTotals(d), first = (cl.name||'').split(' ')[0]; const where = d.property || jobAddr(cl) || cl.name;
+  const at = where && where!==cl.name ? ` for the work at ${where}` : ''; const late = daysLate(d);
+  const due = d.due ? (late > 0 ? ` that was due on ${fdateEn(d.due)}` : ` due on ${fdateEn(d.due)}`) : '';
+  const body = `Hi ${first},\n\nThis is a friendly reminder that invoice ${d.number}${at} has a balance of ${money(t.balance)}${due}. If you have already sent the payment, please disregard this message.\n\nThank you,\n${st.ownerName}\n${st.tradeName}\n${st.phone}\n${st.email}`;
+  compose({to: cl.email||'', subject: `Reminder: Invoice ${d.number} - ${where} - ${st.tradeName}`, body, doc:{id:d.id, coll:'invoices', reminder:true}});
+}
+function remindersModal(){
+  const xs = unpaidSent();
+  openModal('Payment reminders', xs.length ? `<p class="muted" style="margin:0 0 10px">Invoices that were sent and still have a balance. Each reminder opens for you to review before it is sent.</p>
+    <div class="rm-list">${xs.map(d=>{ const t = docTotals(d), late = daysLate(d), cl = S.clients[d.clientId]; return `<div class="rm-row"><div class="rm-m"><b>${esc(clientName(d.clientId)||'No client')}</b><small>${esc(d.number)} · ${d.due ? (late>0 ? `<span class="neg">${late} day${late===1?'':'s'} overdue</span>` : `due ${fdate(d.due)}`) : 'no due date'}${remindLine(d)?' · '+esc(remindLine(d)):''}${viewLine(d)&&S.views[d.id]?' · '+esc(viewLine(d)):''}</small></div><b class="num">${fmt(t.balance,1)}</b><button class="btn sm ${late>0?'primary':''}" data-act="remind" data-id="${d.id}" ${cl?.email?'':'title="This client has no email"'}>Send reminder</button></div>`; }).join('')}</div>` : '<div class="lempty" style="border:0">No unpaid invoices. Everyone is caught up.</div>', `<button class="btn" data-act="modal-close">Close</button>`);
 }
 function composeDoc(d, coll, linked){
   if (coll==='invoices' && S.commas && !linked) return composeInvoice(d);
@@ -3686,11 +3760,13 @@ async function sendMail(btn){
   try {
     await S.mcp.callTool('Gmail', mode==='send'?'send_message':'create_draft', input);
     if (doc && mode==='send'){
-      doc.sentAt = new Date().toISOString(); doc.sentTo = to.join(', ');
+      if (S.composeDoc.reminder) (doc.reminders ||= []).push({at:new Date().toISOString(), to:to.join(', ')});
+      else { doc.sentAt = new Date().toISOString(); doc.sentTo = to.join(', '); }
       if (S.composeDoc.coll==='estimates' && (!doc.status || doc.status==='Borrador')) doc.status='Enviado';
       persist(S.composeDoc.coll, doc, true); renderDrawer();
     }
-    closeModal(); toast(mode==='send'?'Email sent':'Draft saved in Gmail');
+    const wasReminder = !!S.composeDoc?.reminder && mode==='send';
+    closeModal(); toast(mode==='send'?(wasReminder?'Reminder sent':'Email sent'):'Draft saved in Gmail'); if (wasReminder && unpaidSent().length > 1 && S.view!=='doc') remindersModal();
     S.mcp.invalidate?.('Gmail').catch(()=>{});
   } catch(e){
     document.querySelectorAll('[data-act="send-mail"]').forEach(b=>b.disabled=false);
@@ -4092,7 +4168,7 @@ function vSettings(){
       ${f('Venmo username (Business)','venmo','text','jchsllc')}
     </div></details></section>
   <section class="card pad grid"><h3 style="font-size:16px">Invoices and estimates</h3>
-    <div class="fgrid">${f('Invoice prefix','invPrefix')}${f('Next invoice number','invNext','number')}${f('Estimate prefix','estPrefix')}${f('Next estimate number','estNext','number')}${f('Default tax (%)','taxRate','number')}${f('Days to pay','payDays','number')}${f('Markup to add on estimates (%)','markup','number','15','Applied to the total when you choose "Add % to total" on an estimate.')}${f('1099-NEC threshold ($)','threshold1099','number','2000','Payments to a subcontractor at or above this amount are flagged in Reports. Confirm it with your accountant.')}
+    <div class="fgrid">${f('Invoice prefix','invPrefix')}${f('Next invoice number','invNext','number')}${f('Estimate prefix','estPrefix')}${f('Next estimate number','estNext','number')}${f('Default tax (%)','taxRate','number')}${f('Days to pay','payDays','number')}<label class="f"><span>Receipts</span><select class="in" data-set="autoReceipt"><option value="1" ${st.autoReceipt!==''?'selected':''}>Email a receipt when a payment comes in</option><option value="" ${st.autoReceipt===''?'selected':''}>Do not send receipts automatically</option></select></label>${f('Markup to add on estimates (%)','markup','number','15','Applied to the total when you choose "Add % to total" on an estimate.')}${f('1099-NEC threshold ($)','threshold1099','number','2000','Payments to a subcontractor at or above this amount are flagged in Reports. Confirm it with your accountant.')}
     <label class="f full"><span>Default notes on estimates</span><textarea class="in" data-set="estTerms" rows="3">${esc(st.estTerms)}</textarea></label>
     <label class="f full"><span>Contract the client signs when accepting an estimate</span><textarea class="in" data-set="contractTerms" rows="10" placeholder="Enter your contract terms here. If you leave it blank, the client accepts the estimate without a contract.">${esc(st.contractTerms||'')}</textarea>
       <small class="muted">This text appears below the estimate on the page where the client signs, and in the PDF. Kuadra automatically adds the work, the total and the payment plan. Within the text you can use <code>{payments}</code> (the total and payment plan for that estimate), <code>{total}</code>, <code>{property}</code>, <code>{client}</code>, <code>{estimate}</code> and <code>{completion}</code> (the estimated completion date): Kuadra replaces them on each estimate. ${(st.contractTerms||'').trim()?'':`<button type="button" class="linkbtn" data-act="contract-sample" style="font-size:13px">Use the sample contract</button>`}</small></label>
