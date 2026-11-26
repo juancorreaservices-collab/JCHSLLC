@@ -396,6 +396,10 @@ details.menu > summary::-webkit-details-marker{display:none}
 .pn-row label small{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
 .pn-row.done label span{color:var(--ink-3);text-decoration:line-through}
 .pn-row .btn{flex-shrink:0}
+.pf-list{display:flex;flex-direction:column;margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pf-row{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.pf-row:last-child{border-bottom:0}
+.pf-row.tot{background:var(--surface-2);font-weight:700}
 .rm-list{display:flex;flex-direction:column}
 .rm-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
 .rm-row:last-child{border-bottom:0}
@@ -1667,6 +1671,7 @@ function projCalcs(p){
 }
 function refreshProjCalcs(p){
   const c = projCalcs(p);
+  { const full = c.price>0 && c.falta<=0.004 && c.cobrado>0; const bf = $('#drawer [data-pjbtn="final"]'), bp = $('#drawer [data-pjbtn="pay"]'); if (bf){ bf.textContent = full ? 'Final receipt' : 'Receipt'; bf.classList.toggle('primary', full); } if (bp) bp.classList.toggle('primary', !full); }
   document.querySelectorAll('#drawer [data-calc]').forEach(el => {
     const k = el.dataset.calc;
     if (k.startsWith('supamt-')){ const r = (p.hours||[])[+k.slice(7)]; if (r) el.textContent = fmt(N(r.hours)*N(p.supRate),1); return; }
@@ -1792,7 +1797,7 @@ function drProject(p){
         <label class="mini"><span>Month</span><select class="in" data-k="month">${monthOptions(p.month)}</select></label>
         <span class="pj-who">${esc([clientName(p.clientId)||p.owner, p.location].filter(Boolean).join(' · '))}</span>
       </div>
-      <div class="tools"><button class="btn sm ghost" data-act="${p.archived?'proj-restore':'proj-archive'}">${p.archived?'Restore project':'Archive'}</button><button class="btn sm" data-act="est-from-project">${I.est} Estimate</button><button class="btn sm" data-act="inv-from-project">${I.inv} Invoice</button><button class="btn sm primary" data-act="proj-pay">${I.plus} Record payment</button></div>
+      <div class="tools"><button class="btn sm ghost" data-act="${p.archived?'proj-restore':'proj-archive'}">${p.archived?'Restore project':'Archive'}</button><button class="btn sm" data-act="est-from-project">${I.est} Estimate</button><button class="btn sm" data-act="inv-from-project">${I.inv} Invoice</button><button class="btn sm ${c.price>0 && c.falta<=0.004 && c.cobrado>0?'':'primary'}" data-act="proj-pay" data-pjbtn="pay">${I.plus} Record payment</button><button class="btn sm ${c.price>0 && c.falta<=0.004 && c.cobrado>0?'primary':''}" data-act="proj-final" data-pjbtn="final">${c.price>0 && c.falta<=0.004 && c.cobrado>0?'Final receipt':'Receipt'}</button></div>
     </div>
     ${p.archived ? `<div class="note">This project is archived${p.archivedAt?' since '+fdate(p.archivedAt):''}. It still counts in your totals and reports.</div>` : ''}
     <div class="tabs pj-tabs" role="tablist">${TABS.map(([k,l,n])=>`<button role="tab" aria-selected="${tab===k}" data-act="pj-tab" data-v="${k}">${l}${n?`<span class="cnt">${n}</span>`:''}</button>`).join('')}</div>
@@ -2192,10 +2197,18 @@ async function act(name, el){
     case 'proj-tab': S.projTab = el.dataset.v; return renderView();
     case 'sum-month': S.sumMonth = el.dataset.v; return renderView();
     case 'proj-arch': S.projArch = el.dataset.v; return renderView();
-    case 'proj-pay': return projPayModal(o);
+    case 'proj-pay': persist('projects', o, true); return projPayModal(o);
+    case 'proj-final': persist('projects', o, true); return projFinalModal(o);
+    case 'proj-final-send': { const p = S.projects[el.dataset.id]; if (!p) return; const wantArchive = !!$('#pf-archive')?.checked; el.disabled = true;
+      const ok = await sendProjFinal(p); if (!ok){ el.disabled = false; return; }
+      if (wantArchive){ p.archived = '1'; p.archivedAt = new Date().toISOString(); p.status = 'Completado'; persist('projects', p, true); }
+      closeModal(); if (wantArchive){ closeDrawer(); renderView(); toast(`Receipt sent. ${p.name} is completed and archived.`); } else renderDrawer(); return; }
+    case 'proj-final-archive': { const p = S.projects[el.dataset.id]; if (!p) return; p.archived = '1'; p.archivedAt = new Date().toISOString(); p.status = 'Completado'; persist('projects', p, true); closeModal(); closeDrawer(); renderView(); toast(`${p.name} is completed and archived.`); return; }
     case 'proj-pay-save': { const p = S.projects[el.dataset.id]; if (!p) return;
       const amt = Math.round(N($('#pp-amt').value)*100)/100; if (amt<=0){ $('#pp-msg').innerHTML='<div class="note bad">Enter an amount greater than zero.</div>'; return; }
       const pay = {date:$('#pp-date').value||todayISO(), amount:amt, note:[tr($('#pp-method').value), $('#pp-note').value.trim()].filter(Boolean).join(' · ')};
+      const c0 = pc(p); const same = (p.payments||[]).some(x=>Math.abs(N(x.amount)-amt)<0.005) || Math.abs(N(p.down)-amt)<0.005; const over = c0.price>0 && amt > c0.falta + 0.004;
+      if ((same || over) && el.dataset.sure!=='1'){ el.dataset.sure = '1'; el.textContent = 'Save anyway'; $('#pp-msg').innerHTML = `<div class="note warn">${over ? `This is more than the balance due (${fmt(Math.max(0,c0.falta),1)}).` : `A payment of ${fmt(amt,1)} is already in this project.`} If you already typed this payment in the table, do not record it again: tap Cancel and use <b>Receipt</b> instead.</div>`; return; }
       const wantReceipt = !!$('#pp-receipt')?.checked, wantArchive = !!$('#pp-archive')?.checked;
       (p.payments ||= []).push(pay); if (wantArchive){ p.archived = '1'; p.archivedAt = new Date().toISOString(); p.status = 'Completado'; }
       persist('projects', p, true); closeModal();
@@ -3722,6 +3735,50 @@ function projPayModal(p){
     <div id="pp-msg"></div>`,
     `<button class="btn" data-act="modal-close">Cancel</button><button class="btn primary" data-act="proj-pay-save" data-id="${p.id}">Save payment</button>`);
   setTimeout(()=>$('#pp-amt')?.select(), 50);
+}
+/* Final receipt: uses the payments already in the project's table. It records nothing new. */
+function projPayLines(p){
+  const out = []; if (N(p.down)) out.push({date:p.downDate||'', label:'Down payment', amount:N(p.down)});
+  (p.payments||[]).forEach(x=>{ if (N(x.amount)) out.push({date:x.date||'', label:methodEn(x.note)||'Payment', amount:N(x.amount)}); });
+  return out.sort((a,b)=>String(a.date||'9').localeCompare(String(b.date||'9')));
+}
+function projFinalModal(p){
+  const c = pc(p), cl = S.clients[p.clientId], lines = projPayLines(p);
+  if (!lines.length){ toast('There are no payments in this project yet. Add them in the table or with Record payment.'); return; } const full = c.price>0 && c.falta<=0.004;
+  openModal(full ? `Final receipt · ${esc(p.name)}` : `Receipt · ${esc(p.name)}`, `
+    <div class="note ${full?'ok':'warn'}">${full ? 'This project is paid in full. The receipt uses the payments already in the table.' : c.price>0 ? `There is still <b>${fmt(c.falta,1)}</b> due. The receipt will show the payments so far and the remaining balance.` : 'This project has no price, so the receipt only lists the payments received.'} <b>No new payment is recorded.</b></div>
+    <div class="pf-list">${lines.map(l=>`<div class="pf-row"><span>${l.date?fdate(l.date):'No date'}</span><span>${esc(l.label)}</span><b class="num">${fmt(l.amount,1)}</b></div>`).join('')}
+      <div class="pf-row tot"><span>Total paid</span><span></span><b class="num">${fmt(c.cobrado,1)}</b></div>
+      ${c.price>0?`<div class="pf-row"><span>Project total</span><span></span><b class="num">${fmt(c.price,1)}</b></div><div class="pf-row tot"><span>Balance</span><span></span><b class="num ${full?'':'neg'}">${full?'Paid in full':fmt(c.falta,1)}</b></div>`:''}</div>
+    ${S.mcp && cl?.email ? `<p class="muted" style="font-size:13px;margin:12px 0 0">It will be emailed to ${esc(cl.name)} (${esc(cl.email)}).${p.finalReceiptAt?` Last sent ${fdate(p.finalReceiptAt)}.`:''}</p>` : `<div class="note warn" style="margin-top:12px">${!S.mcp?'Email is not connected, so the receipt cannot be sent.':cl?'This client has no email. Add it to send the receipt.':'Choose a client on this project to send the receipt.'}</div>`}
+    <label class="qs-keep" style="margin-top:10px"><input type="checkbox" id="pf-archive" ${full && !p.archived?'checked':''}> Mark the project completed and archive it</label>`,
+    `<button class="btn" data-act="modal-close">Cancel</button>${full && !p.archived?`<button class="btn" data-act="proj-final-archive" data-id="${p.id}">Archive without sending</button>`:''}<button class="btn primary" data-act="proj-final-send" data-id="${p.id}" ${S.mcp && cl?.email?'':'disabled'}>${I.send} Send receipt</button>`);
+}
+async function sendProjFinal(p){
+  const cl = S.clients[p.clientId]; if (!cl?.email || !S.mcp){ toast('The receipt cannot be sent: the client email or the email connection is missing'); return false; }
+  const st = S.settings, c = pc(p), lines = projPayLines(p); const first = (cl.name||'').split(' ')[0]; const where = p.location || jobAddr(cl) || '';
+  const hasPrice = c.price>0, full = hasPrice && c.falta<=0.004; const rno = `P${pnum(p)||''}-${full?'FINAL':'R'}`; const job = p.name + (where && !p.name.includes(where) ? ` at ${where}` : '');
+  const intro = `Hi ${first},\n\n${full ? `Thank you! We have received all payments for ${job}. Your project is paid in full. We appreciate your business.` : `Thank you! Here is a receipt for the payments we have received for ${job}.${hasPrice?` Your remaining balance is ${money(c.falta)}.`:''}`}`;
+  const sign = `Thank you,\n${st.ownerName}\n${st.tradeName}\n${st.phone}\n${st.email}`;
+  const F = 'font-family:Arial,Helvetica,sans-serif;'; const INK = '#0B1B33', MUTE = '#8492A8', SOFT = '#44536B', LINE = '#E3E9F1';
+  const para = x => `<div style="${F}font-size:15px;line-height:1.6;color:${INK};white-space:pre-wrap">${esc(x)}</div>`;
+  const row = (a,b,bold) => `<tr><td style="${F}padding:8px 0;color:${bold?INK:SOFT};font-size:13px;${bold?'font-weight:bold;':''}border-top:1px solid ${LINE}">${a}</td><td align="right" style="${F}padding:8px 0;font-size:13px;font-weight:bold;color:${INK};border-top:1px solid ${LINE}">${b}</td></tr>`;
+  const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F7FB" style="background-color:#F4F7FB"><tr><td align="center" style="padding:24px 12px">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid ${LINE};border-top:4px solid ${INK};border-radius:10px">
+      <tr><td style="padding:28px 32px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="top"><img src="cid:att0" alt="${esc(st.tradeName)}" width="130" style="display:block;width:130px;height:auto;border:0"></td>
+        <td valign="top" align="right"><div style="${F}font-size:22px;letter-spacing:6px;color:${INK}">RECEIPT</div><div style="${F}font-size:12px;color:${MUTE};letter-spacing:1.5px;margin-top:6px">${esc(rno)}</div></td></tr></table></td></tr>
+      <tr><td style="padding:4px 32px 0">${para(intro)}</td></tr>
+      <tr><td style="padding:20px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:10px"><tr><td style="padding:22px">
+        <div style="${F}font-size:11px;letter-spacing:1.6px;color:${MUTE};text-transform:uppercase">${full?'Paid in full':'Total paid'}</div><div style="${F}font-size:32px;font-weight:bold;color:#1e7a4c;margin:4px 0 14px">${money(c.cobrado)}</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Project', esc(p.name))}${where?row('Property', esc(where)):''}${lines.map(l=>row(`${l.date?fdateEn(l.date)+' · ':''}${esc(l.label)}`, money(l.amount))).join('')}${row('Total paid', money(c.cobrado), true)}${hasPrice?row('Project total', money(c.price)):''}${hasPrice?row('Balance', full?'Paid in full':money(c.falta), true):''}</table></td></tr></table></td></tr>
+      <tr><td style="padding:22px 32px 26px">${para(sign)}</td></tr>
+    </table></td></tr></table>`;
+  const text = `${intro}\n\nReceipt ${rno}\n${lines.map(l=>`${l.date?fdateEn(l.date)+' - ':''}${l.label}: ${money(l.amount)}`).join('\n')}\nTotal paid: ${money(c.cobrado)}${hasPrice?`\nProject total: ${money(c.price)}\nBalance: ${full?'Paid in full':money(c.falta)}`:''}\n\n${sign}`;
+  try {
+    await S.mcp.callTool('Gmail', 'send_message', { to:[cl.email], subject:`${full?'Final receipt - Paid in full':'Receipt'} - ${where || p.name} - ${st.tradeName}`, body:text, htmlBody:html, attachments:[{content: LOGO_PDF, filename:'jc-home-services-logo.jpg', mimeType:'image/jpeg', inline:true}] });
+    p.finalReceiptAt = new Date().toISOString(); persist('projects', p, true); toast(`Receipt sent to ${cl.name}`); S.mcp.invalidate?.('Gmail').catch(()=>{}); return true;
+  } catch(e){ toast('The receipt could not be sent: ' + (e?.message || 'email error')); return false; }
 }
 function projReceiptMail(p, pay){
   const st = S.settings, cl = S.clients[p.clientId] || {}, c = pc(p); const first = (cl.name||'').split(' ')[0];
