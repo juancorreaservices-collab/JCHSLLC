@@ -519,7 +519,7 @@ select.in,select{appearance:none;-webkit-appearance:none;background-image:url("d
 .ptr.tot{font-weight:800;background:var(--surface-2)}
 .ptr.tot b{text-align:right;font-variant-numeric:tabular-nums}
 .ptr .calc{text-align:right}
-.ptr.r-pay{grid-template-columns:130px 110px minmax(120px,1fr) 28px}
+.ptr.r-pay{grid-template-columns:130px 110px minmax(120px,1fr) auto 28px}
 .ptr.r-sub{grid-template-columns:minmax(110px,1fr) minmax(110px,1fr) 100px 100px 130px 90px 28px}
 .ptr.r-buy{grid-template-columns:130px minmax(120px,1.2fr) minmax(100px,1fr) 100px minmax(80px,.7fr) 28px}
 .ptr.r-task{grid-template-columns:minmax(160px,1fr) 140px minmax(160px,1.6fr) 28px}
@@ -673,7 +673,8 @@ button.lrow:hover{background:var(--surface-2)}
 .lg-two .ptr.r-buy{grid-template-columns:122px minmax(90px,1.2fr) minmax(80px,1fr) 84px minmax(60px,.7fr) 24px}
 .ptr.r-hrs,.lg-two .ptr.r-hrs{grid-template-columns:122px 76px 96px minmax(90px,1fr) 24px}
 .ptr.r-hrs .calc,.ptr.r-hrs .r{text-align:right;font-variant-numeric:tabular-nums}
-.lg-two .ptr.r-pay{grid-template-columns:122px 100px minmax(100px,1fr) 24px}
+.lg-two .ptr.r-pay{grid-template-columns:122px 92px minmax(80px,1fr) auto 24px}
+.ptr.r-pay .btn.sm{padding-left:8px;padding-right:8px;font-size:12px;white-space:nowrap}
 .lg-two .ptr{padding-left:12px;padding-right:10px}
 .lg-two .ptr .in{padding-left:8px;padding-right:8px}
 .lg-col{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -1087,7 +1088,7 @@ const DEFAULT_SETTINGS = {
 };
 const S = {
   db:null, mcp:null, dl:null, live:false, loaded:{},
-  projects:{}, clients:{}, estimates:{}, invoices:{}, services:{}, expenses:{}, items:{}, events:{}, views:{}, calMonth:null, invTab:'unpaid', estTab:'active', docQ:'', cliQ:'', projTab:'resumen', sumMonth:'all', assets:null, repYear:null, expMonth:'all', expCat:'Todas',
+  projects:{}, clients:{}, estimates:{}, invoices:{}, services:{}, expenses:{}, items:{}, events:{}, views:{}, calMonth:null, invTab:'unpaid', estTab:'active', docQ:'', cliQ:'', projTab:'resumen', projArch:'active', sumMonth:'all', assets:null, repYear:null, expMonth:'all', expCat:'Todas',
   settings:{...DEFAULT_SETTINGS},
   view:'panel', boardStart:null, boardFilter:'Todos', boardQ:'',
   docFilter:'Todos', mailQ:'in:inbox', drawer:null,
@@ -1502,9 +1503,10 @@ function vProjSummary(){
       <span class="pj-nums"><span><small>Price</small><b class="num">${c.price?fmt(c.price):'—'}</b></span><span><small>Collected</small><b class="num">${fmt(c.cobrado)}</b></span><span><small>Balance due</small><b class="num">${c.price?fmt(c.falta):'—'}</b></span><span><small>Profit</small><b class="num ${c.ganancia<0?'neg':''}">${fmt(c.ganancia)}</b></span></span>
       <span class="pj-foot"><span class="prog"><i style="width:${Math.min(100,c.pctCobrado*100)}%"></i></span><small>${c.price?pct(c.pctCobrado)+' collected':'No price yet'}${p.start||p.end?' · '+[p.start&&fdate(p.start),p.end&&fdate(p.end)].filter(Boolean).join(' → '):''}</small></span>
     </button>`;
-  const groups = (S.sumMonth==='all' ? months : [S.sumMonth]).map(m=>[m, cs.filter(([p])=>p.month===m)]).filter(g=>g[1].length);
-  const noMonth = cs.filter(([p])=>!p.month); if (noMonth.length && S.sumMonth==='all') groups.push(['', noMonth]);
-  const activeN = all.filter(p=>p.status!=='Completado').length;
+  const arch = S.projArch==='archived'; const shown = cs.filter(([p])=>!!p.archived === arch); const nArch = all.filter(p=>p.archived).length;
+  const groups = (S.sumMonth==='all' ? months : [S.sumMonth]).map(m=>[m, shown.filter(([p])=>p.month===m)]).filter(g=>g[1].length);
+  const noMonth = shown.filter(([p])=>!p.month); if (noMonth.length && S.sumMonth==='all') groups.push(['', noMonth]);
+  const activeN = all.filter(p=>p.status!=='Completado' && !p.archived).length;
   return `
   <div class="head"><div><h1>Projects</h1><p>${activeN} active${activeN===1?'':''}${range?' · '+esc(range):''}</p></div>
     <div class="tools"><button class="btn primary" data-act="new-project">${I.plus} New project</button></div></div>
@@ -1516,6 +1518,8 @@ function vProjSummary(){
     <div class="card tile"><span class="label">Balance due</span><strong class="num">${fmt(cs.reduce((a,[,c])=>a+(c.price?c.falta:0),0))}</strong></div>
     <div class="card tile"><span class="label">Projected profit</span><strong class="num">${fmt(projected)}</strong><small>${goal?pct(projected/goal)+' of the goal of '+fmt(goal):''}</small></div>
   </div>
+  ${nArch || arch ? `<div class="chips"><button class="chip" data-act="proj-arch" data-v="active" aria-pressed="${!arch}">Active projects</button><button class="chip" data-act="proj-arch" data-v="archived" aria-pressed="${arch}">Archived (${nArch})</button></div>` : ''}
+  ${arch && !shown.length ? `<div class="card empty"><span>No archived projects.</span></div>` : ''}
   ${months.length>1?`<div class="chips"><button class="chip" data-act="sum-month" data-v="all" aria-pressed="${S.sumMonth==='all'}">All</button>${months.map(m=>`<button class="chip" data-act="sum-month" data-v="${m}" aria-pressed="${S.sumMonth===m}">${monthLabel(m)}</button>`).join('')}</div>`:''}
   ${groups.length ? groups.map(([m, rows])=>`<section class="pj-group"><div class="pj-gh"><h2>${m?monthLabel(m):'No month'}</h2><span class="muted">${rows.length} project${rows.length===1?'':'s'} · ${fmt(rows.reduce((a,[,c])=>a+c.price,0))}</span></div><div class="pj-grid">${rows.map(card).join('')}</div></section>`).join('')
     : `<div class="card empty"><h3>No projects yet</h3><span>Create your first project and it will appear here with its price, amount collected and profit.</span><button class="btn primary" data-act="new-project">${I.plus} New project</button></div>`}`}`;
@@ -1535,7 +1539,7 @@ function vBoard(){
   const start = S.boardStart || shiftMonth(curMonth(),-1);
   const months = [0,1,2].map(i=>shiftMonth(start,i));
   const q = S.boardQ.toLowerCase();
-  const match = p => (S.boardFilter==='Todos' || p.status===S.boardFilter) && (!q || [p.name,p.owner,p.type,p.location,clientName(p.clientId)].join(' ').toLowerCase().includes(q));
+  const match = p => !p.archived && (S.boardFilter==='Todos' || p.status===S.boardFilter) && (!q || [p.name,p.owner,p.type,p.location,clientName(p.clientId)].join(' ').toLowerCase().includes(q));
   const ps = list('projects');
   const other = ps.filter(p=>!months.includes(p.month) && match(p));
   const col = m => {
@@ -1714,9 +1718,9 @@ function drProject(p){
           </section>
           <section class="card pj-card"><div class="pj-card-h"><h3>Payments received from client (after the down payment)</h3><button class="btn sm" data-act="row-add" data-list="payments">${I.plus} Add payment</button></div>
             ${pays.length ? `<div class="ptbl">
-              <div class="ptr hd r-pay"><span>Date</span><span>Amount</span><span>Note</span><span></span></div>
-              ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Note')}${del('payments',i)}</div>`).join('')}
-              <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span></div>
+              <div class="ptr hd r-pay"><span>Date</span><span>Amount</span><span>Note</span><span></span><span></span></div>
+              ${pays.map((r,i)=>`<div class="ptr r-pay">${li('payments',i,'date',r.date,'date')}${li('payments',i,'amount',r.amount,'money','0')}${li('payments',i,'note',r.note,'text','Note')}${r.invoiceId?'<span></span>':`<button class="btn sm ghost" data-act="proj-receipt" data-i="${i}" title="${r.receiptAt?'Sent to '+esc(r.receiptTo||'')+' on '+fdate(r.receiptAt)+'. Tap to send it again.':'Email a receipt for this payment'}">${r.receiptAt?'Receipt sent':'Send receipt'}</button>`}${del('payments',i)}</div>`).join('')}
+              <div class="ptr tot r-pay"><span>Total</span><b data-calc="extra">${c.extraTxt}</b><span></span><span></span><span></span></div>
             </div>` : `<div class="lempty">No payments after the down payment. Payments on this project's invoices appear here automatically.</div>`}
           </section>
           <section class="card pj-card"><div class="pj-card-h"><h3>Supervisor hours</h3><button class="btn sm" data-act="row-add" data-list="hours">${I.plus} Add hours</button></div>
@@ -1788,8 +1792,9 @@ function drProject(p){
         <label class="mini"><span>Month</span><select class="in" data-k="month">${monthOptions(p.month)}</select></label>
         <span class="pj-who">${esc([clientName(p.clientId)||p.owner, p.location].filter(Boolean).join(' · '))}</span>
       </div>
-      <div class="tools"><button class="btn sm" data-act="est-from-project">${I.est} Estimate</button><button class="btn sm primary" data-act="inv-from-project">${I.inv} Invoice</button></div>
+      <div class="tools"><button class="btn sm ghost" data-act="${p.archived?'proj-restore':'proj-archive'}">${p.archived?'Restore project':'Archive'}</button><button class="btn sm" data-act="est-from-project">${I.est} Estimate</button><button class="btn sm" data-act="inv-from-project">${I.inv} Invoice</button><button class="btn sm primary" data-act="proj-pay">${I.plus} Record payment</button></div>
     </div>
+    ${p.archived ? `<div class="note">This project is archived${p.archivedAt?' since '+fdate(p.archivedAt):''}. It still counts in your totals and reports.</div>` : ''}
     <div class="tabs pj-tabs" role="tablist">${TABS.map(([k,l,n])=>`<button role="tab" aria-selected="${tab===k}" data-act="pj-tab" data-v="${k}">${l}${n?`<span class="cnt">${n}</span>`:''}</button>`).join('')}</div>
     <div class="pj-body">${(body[tab]||body.resumen)()}</div>
   </div>`;
@@ -2186,6 +2191,19 @@ async function act(name, el){
     case 'doc-tab': S[el.dataset.key] = el.dataset.v; return renderView();
     case 'proj-tab': S.projTab = el.dataset.v; return renderView();
     case 'sum-month': S.sumMonth = el.dataset.v; return renderView();
+    case 'proj-arch': S.projArch = el.dataset.v; return renderView();
+    case 'proj-pay': return projPayModal(o);
+    case 'proj-pay-save': { const p = S.projects[el.dataset.id]; if (!p) return;
+      const amt = Math.round(N($('#pp-amt').value)*100)/100; if (amt<=0){ $('#pp-msg').innerHTML='<div class="note bad">Enter an amount greater than zero.</div>'; return; }
+      const pay = {date:$('#pp-date').value||todayISO(), amount:amt, note:[tr($('#pp-method').value), $('#pp-note').value.trim()].filter(Boolean).join(' · ')};
+      const wantReceipt = !!$('#pp-receipt')?.checked, wantArchive = !!$('#pp-archive')?.checked;
+      (p.payments ||= []).push(pay); if (wantArchive){ p.archived = '1'; p.archivedAt = new Date().toISOString(); p.status = 'Completado'; }
+      persist('projects', p, true); closeModal();
+      if (wantArchive){ closeDrawer(); renderView(); toast(`Payment recorded. ${p.name} is completed and archived.`); } else { renderDrawer(); toast(pc(p).price && pc(p).falta<=0.004 ? 'Payment recorded: this project is paid in full' : 'Payment recorded'); }
+      if (wantReceipt) sendProjReceipt(p, pay); return; }
+    case 'proj-receipt': { const pay = (o.payments||[])[+el.dataset.i]; if (pay){ persist('projects', o, true); return sendProjReceipt(o, pay); } return; }
+    case 'proj-archive': { o.archived = '1'; o.archivedAt = new Date().toISOString(); persist('projects', o, true); closeDrawer(); renderView(); toast(`${o.name} archived. Find it under Projects → Archived.`); return; }
+    case 'proj-restore': { o.archived = ''; persist('projects', o, true); renderDrawer(); toast('Project restored'); return; }
     case 'inv-for-client': return newDocFor('invoices', o.id);
     case 'est-for-prop': return newDoc('estimates', {clientId:o.id, property:el.dataset.prop});
     case 'row-est-client': return el.dataset.prop ? newDoc('estimates', {clientId:el.dataset.id, property:el.dataset.prop}) : newDocFor('estimates', el.dataset.id);
@@ -3687,6 +3705,59 @@ async function sendReceipt(inv, pay, quiet){
     return true;
   } catch(e){ toast('The receipt could not be sent: ' + (e?.message || 'email error') + '. You can send it from the invoice.'); return false; }
   finally { sendReceipt.busy.delete(pay); }
+}
+/* Payments recorded straight on a project (a check, Zelle, cash) with an optional receipt and archive */
+function projPayModal(p){
+  const c = pc(p), cl = S.clients[p.clientId]; const due = c.price ? Math.max(0, c.falta) : 0;
+  openModal(`Record payment · ${esc(p.name)}`, `
+    ${c.price ? `<p class="muted" style="margin:0 0 12px">Price ${fmt(c.price,1)} · collected ${fmt(c.cobrado,1)} · balance due ${fmt(c.falta,1)}</p>` : ''}
+    <div class="fgrid">
+      <label class="f"><span>Payment date</span><input class="in plain" type="date" id="pp-date" value="${todayISO()}"></label>
+      <label class="f"><span>Amount</span><input class="in plain n" id="pp-amt" inputmode="decimal" value="${due?due.toFixed(2):''}"></label>
+      <label class="f"><span>Method</span><select class="in plain" id="pp-method">${['Cheque','Zelle','Efectivo','Transferencia','Tarjeta','Commas'].map(m=>`<option>${m}</option>`).join('')}</select></label>
+      <label class="f"><span>Note (optional)</span><input class="in plain" id="pp-note" placeholder="E.g. check #1234"></label>
+    </div>
+    ${S.mcp && cl?.email ? `<label class="qs-keep" style="margin-top:12px"><input type="checkbox" id="pp-receipt" ${S.settings.autoReceipt!==''?'checked':''}> Email a receipt to ${esc(cl.name)} (${esc(cl.email)})</label>` : `<p class="muted" style="font-size:13px;margin:12px 0 0">${!S.mcp?'Email is not connected, so no receipt will be sent.':cl?'This client has no email, so no receipt will be sent.':'Choose a client on this project to be able to email a receipt.'}</p>`}
+    <label class="qs-keep" style="margin-top:10px"><input type="checkbox" id="pp-archive"> This is the final payment: mark the project completed and archive it</label>
+    <div id="pp-msg"></div>`,
+    `<button class="btn" data-act="modal-close">Cancel</button><button class="btn primary" data-act="proj-pay-save" data-id="${p.id}">Save payment</button>`);
+  setTimeout(()=>$('#pp-amt')?.select(), 50);
+}
+function projReceiptMail(p, pay){
+  const st = S.settings, cl = S.clients[p.clientId] || {}, c = pc(p); const first = (cl.name||'').split(' ')[0];
+  const where = p.location || jobAddr(cl) || ''; const hasPrice = c.price > 0, paidFull = hasPrice && c.falta <= 0.004;
+  const n = Math.max(1, (p.payments||[]).indexOf(pay)+1); const rno = `P${pnum(p)||''}-R${n}`.replace('P-','P');
+  const job = p.name + (where && !p.name.includes(where) ? ` at ${where}` : '');
+  const intro = `Hi ${first},\n\nThank you! We received your payment of ${money(N(pay.amount))} for ${job}.${paidFull ? ' Your project is now paid in full. We appreciate your business.' : hasPrice ? ` Your remaining balance is ${money(c.falta)}.` : ''}`;
+  const sign = `Thank you,\n${st.ownerName}\n${st.tradeName}\n${st.phone}\n${st.email}`;
+  const F = 'font-family:Arial,Helvetica,sans-serif;'; const INK = '#0B1B33', MUTE = '#8492A8', SOFT = '#44536B', LINE = '#E3E9F1';
+  const para = x => `<div style="${F}font-size:15px;line-height:1.6;color:${INK};white-space:pre-wrap">${esc(x)}</div>`;
+  const row = (a,b) => `<tr><td style="${F}padding:8px 0;color:${SOFT};font-size:13px;border-top:1px solid ${LINE}">${a}</td><td align="right" style="${F}padding:8px 0;font-size:13px;font-weight:bold;color:${INK};border-top:1px solid ${LINE}">${b}</td></tr>`;
+  const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F7FB" style="background-color:#F4F7FB"><tr><td align="center" style="padding:24px 12px">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid ${LINE};border-top:4px solid ${INK};border-radius:10px">
+      <tr><td style="padding:28px 32px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="top"><img src="cid:att0" alt="${esc(st.tradeName)}" width="130" style="display:block;width:130px;height:auto;border:0"></td>
+        <td valign="top" align="right"><div style="${F}font-size:22px;letter-spacing:6px;color:${INK}">RECEIPT</div><div style="${F}font-size:12px;color:${MUTE};letter-spacing:1.5px;margin-top:6px">${esc(rno)}</div></td></tr></table></td></tr>
+      <tr><td style="padding:4px 32px 0">${para(intro)}</td></tr>
+      <tr><td style="padding:20px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:10px"><tr><td style="padding:22px">
+        <div style="${F}font-size:11px;letter-spacing:1.6px;color:${MUTE};text-transform:uppercase">Payment received</div><div style="${F}font-size:32px;font-weight:bold;color:#1e7a4c;margin:4px 0 14px">${money(N(pay.amount))}</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${row('Receipt', esc(rno))}${row('Date', fdateEn(pay.date||todayISO()))}${methodEn(pay.note)?row('Method', esc(methodEn(pay.note))):''}${row('Project', esc(p.name))}${where?row('Property', esc(where)):''}${hasPrice?row('Project total', money(c.price)):''}${row('Total paid', money(c.cobrado))}${hasPrice?row(paidFull?'Balance':'Remaining balance', paidFull?'Paid in full':money(c.falta)):''}</table></td></tr></table></td></tr>
+      <tr><td style="padding:22px 32px 26px">${para(sign)}</td></tr>
+    </table></td></tr></table>`;
+  return { subject: `Receipt - Payment of ${money(N(pay.amount))} - ${where || p.name} - ${st.tradeName}`, text: `${intro}\n\nReceipt ${rno}\nDate: ${fdateEn(pay.date||todayISO())}${methodEn(pay.note)?`\nMethod: ${methodEn(pay.note)}`:''}${hasPrice?`\nProject total: ${money(c.price)}`:''}\nTotal paid: ${money(c.cobrado)}${hasPrice?`\n${paidFull?'Balance: Paid in full':'Remaining balance: '+money(c.falta)}`:''}\n\n${sign}`, html };
+}
+async function sendProjReceipt(p, pay){
+  const cl = S.clients[p.clientId];
+  if (!pay || !(N(pay.amount) > 0)){ toast('Enter the payment amount first'); return false; }
+  if (!cl?.email){ toast(cl ? 'No receipt sent: this client has no email' : 'No receipt sent: choose a client on this project first'); return false; }
+  if (!S.mcp){ toast('No receipt sent: email is not set up'); return false; }
+  try {
+    const m = projReceiptMail(p, pay);
+    await S.mcp.callTool('Gmail', 'send_message', { to:[cl.email], subject:m.subject, body:m.text, htmlBody:m.html, attachments:[{content: LOGO_PDF, filename:'jc-home-services-logo.jpg', mimeType:'image/jpeg', inline:true}] });
+    pay.receiptAt = new Date().toISOString(); pay.receiptTo = cl.email; persist('projects', p, true);
+    toast(`Receipt sent to ${cl.name}`); if (S.drawer?.id===p.id) renderDrawer(); S.mcp.invalidate?.('Gmail').catch(()=>{});
+    return true;
+  } catch(e){ toast('The receipt could not be sent: ' + (e?.message || 'email error') + '. You can send it from the project.'); return false; }
 }
 /* Payment reminders: one tap opens a ready-to-send reminder for an unpaid invoice; the owner reviews it and sends */
 const unpaidSent = () => list('invoices').filter(i=>i.sentAt && docTotals(i).total>0 && docTotals(i).balance>0.004).sort((a,b)=>String(a.due||a.date).localeCompare(String(b.due||b.date)));
